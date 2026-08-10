@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio Pengembangan Diri | BEING Biro Psikologi</title>
+<style>
+:root{--g:#174b3a;--bg:#f5f8f6;--line:#dfe8e3;--mut:#65736c;--danger:#b42318}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:#1e2924}
+.wrap{max-width:1120px;margin:auto;padding:24px}.brand{font-weight:850;color:var(--g);font-size:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:18px;box-shadow:0 8px 24px rgba(23,75,58,.05)}
+input,select,textarea{width:100%;padding:11px;border:1px solid #ccd8d2;border-radius:11px;margin:6px 0 10px;font:inherit}
+button{border:0;border-radius:10px;background:var(--g);color:#fff;padding:10px 13px;font-weight:800;cursor:pointer}.secondary{background:#e8f1ed;color:var(--g)}.danger{background:#fff0ee;color:var(--danger)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut)}
+.badge{padding:4px 8px;border-radius:99px;background:#edf3f0;display:inline-block;font-size:12px}.msg{color:var(--mut);margin-top:8px}.scroll{overflow:auto}.actions{display:flex;gap:7px;flex-wrap:wrap}
+</style>
+</head>
+<body><div class="wrap">
+<div class="brand">BEING • Studio Pengembangan Diri</div>
+<p>Kelola program, peserta, dan materi Pengembangan Diri BEING.</p>
+
+<div class="card">
+<label>Kunci Admin</label>
+<input id="adminKey" type="password" placeholder="Masukkan ADMIN_KEY dari Apps Script">
+<button onclick="saveKey()">Simpan di perangkat ini</button>
+<span id="keyMsg" class="msg"></span>
+</div>
+
+<div class="grid">
+<section class="card">
+<h2>Buat Program</h2>
+<input id="pNama" placeholder="Nama program">
+<textarea id="pDesk" placeholder="Deskripsi singkat"></textarea>
+<input id="pMediaUrl" placeholder="Link flyer / PDF / gambar (Google Drive atau URL langsung)"><div class="msg">Jika dari Google Drive, set izin file: Siapa saja yang memiliki link dapat melihat.</div>
+<select id="pMediaType">
+  <option value="">Tanpa media</option>
+  <option value="IMAGE">Gambar / Flyer (JPG, PNG)</option>
+  <option value="PDF">PDF / Brosur</option>
+  <option value="LINK">Link lainnya</option>
+</select>
+<select id="pStatus"><option>BUKA</option><option>TUTUP</option></select>
+<button onclick="createProgram()">Simpan Program</button><div id="pMsg" class="msg"></div>
+</section>
+
+<section class="card">
+<h2>Tambah Materi</h2>
+<select id="mProgram"></select>
+<input id="mJudul" placeholder="Judul materi">
+<textarea id="mDesk" placeholder="Keterangan"></textarea>
+<input id="mLink" placeholder="https://drive.google.com/...">
+<select id="mStatus"><option>PUBLIKASI</option><option>DRAFT</option></select>
+<button onclick="createMaterial()">Simpan Materi</button><div id="mMsg" class="msg"></div>
+</section>
+</div>
+
+<section class="card"><h2>Program</h2><div class="scroll"><table><thead><tr><th>Program</th><th>Media</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="programRows"></tbody></table></div></section>
+<section class="card"><h2>Peserta</h2><p class="mut">Setelah peserta aktif, gunakan Salin Link, Kirim WA, atau Email untuk memberikan akses MyBeing.</p><div class="scroll"><table><thead><tr><th>Nama</th><th>Program</th><th>Kontak</th><th>Instansi / Catatan</th><th>Status</th><th>Akses</th><th>Aksi</th></tr></thead><tbody id="pesertaRows"></tbody></table></div></section>
+<section class="card"><h2>Materi</h2><div class="scroll"><table><thead><tr><th>Program</th><th>Judul</th><th>Status</th><th>Link</th><th>Aksi</th></tr></thead><tbody id="materiRows"></tbody></table></div></section>
+</div>
+
+<script>
+const API_URL='https://script.google.com/macros/s/AKfycbzvEgNEROBTjx6N3itbJGXVen2OGsV7zDYZeKRiNcmcVDaWkIG9i0BzijTAOS-82QqR/exec';
+let programs=[];
+const $=id=>document.getElementById(id);
+function key(){return localStorage.getItem('beingLiteAdminKey')||''}
+function saveKey(){localStorage.setItem('beingLiteAdminKey',$('adminKey').value.trim());$('keyMsg').textContent='Tersimpan.';refresh()}
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+async function get(action,extra={}){const u=new URL(API_URL);Object.entries({action,adminKey:key(),...extra}).forEach(([k,v])=>u.searchParams.set(k,v));const r=await fetch(u);return r.json()}
+async function post(obj){const body=new URLSearchParams();Object.entries({...obj,adminKey:key()}).forEach(([k,v])=>body.append(k,v??''));const r=await fetch(API_URL,{method:'POST',body,redirect:'follow'});const t=await r.text();try{return JSON.parse(t)}catch{throw new Error('Respons API tidak dapat dibaca. Deploy ulang Apps Script.')}}
+async function createProgram(){
+ const x=await post({action:'createProgram',nama:pNama.value.trim(),deskripsi:pDesk.value.trim(),status:pStatus.value});pMsg.textContent=x.message||'';if(x.ok){pNama.value='';pDesk.value='';refresh()}
+}
+async function createMaterial(){
+ const x=await post({action:'createMaterial',programId:mProgram.value,judul:mJudul.value.trim(),deskripsi:mDesk.value.trim(),link:mLink.value.trim(),status:mStatus.value});mMsg.textContent=x.message||'';if(x.ok){mJudul.value='';mDesk.value='';mLink.value='';refresh()}
+}
+async function activate(id){
+ const x=await post({action:'activateParticipant',pesertaId:id});alert(x.message||'Selesai');refresh()
+}
+async function setProgramStatus(id,status){await post({action:'setProgramStatus',programId:id,status});refresh()}
+async function deleteProgram(id,nama){
+  const yakin=confirm(`Hapus program "${nama}"?\n\nProgram yang sudah memiliki peserta atau materi tidak akan dihapus untuk menjaga data.`);
+  if(!yakin) return;
+
+  try{
+    const x=await post({action:'deleteProgram',programId:id});
+    alert(x.message||'Selesai');
+    if(x.ok) refresh();
+  }catch(e){
+    alert('Gagal menghapus program: '+e.message);
+  }
+}
+
+async function setProgramMedia(id,currentUrl='',currentType=''){
+  const url=prompt('Tempel link flyer / PDF program:', currentUrl || '');
+  if(url===null) return;
+
+  let type=currentType || '';
+  if(url.trim()){
+    const answer=prompt('Jenis media: IMAGE untuk JPG/PNG, PDF untuk PDF, LINK untuk link lainnya:', type || 'IMAGE');
+    if(answer===null) return;
+    type=String(answer||'').trim().toUpperCase();
+    if(!['IMAGE','PDF','LINK'].includes(type)) type='';
+  }else{
+    type='';
+  }
+
+  try{
+    const x=await post({
+      action:'setProgramMedia',
+      programId:id,
+      mediaUrl:url.trim(),
+      mediaType:type
+    });
+    alert(x.message||'Selesai');
+    refresh();
+  }catch(e){
+    alert('Gagal menyimpan media: '+e.message);
+  }
+}
+
+async function setMaterialStatus(id,status){await post({action:'setMaterialStatus',materiId:id,status});refresh()}
+async function copyText(text){
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+    }else{
+      const area=document.createElement('textarea');
+      area.value=text;
+      area.setAttribute('readonly','');
+      area.style.position='fixed';
+      area.style.left='-9999px';
+      document.body.appendChild(area);
+      area.focus();
+      area.select();
+      const ok=document.execCommand('copy');
+      document.body.removeChild(area);
+      if(!ok) throw new Error('copy failed');
+    }
+    alert('Link akses peserta berhasil disalin.');
+  }catch(err){
+    prompt('Salin link akses peserta berikut:',text);
+  }
+}
+
+function accessLink(token){
+  const u=new URL('akses.html',location.href);
+  u.searchParams.set('access',token);
+  return u.toString();
+}
+
+function normalizeWa(wa){
+  const raw=String(wa||'').replace(/\D/g,'');
+  if(!raw) return '';
+  if(raw.startsWith('0')) return '62'+raw.slice(1);
+  if(raw.startsWith('62')) return raw;
+  return raw;
+}
+
+function waLink(p){
+  const num=normalizeWa(p.wa);
+  const link=accessLink(p.accessToken);
+  const text=`Halo ${p.nama}, pendaftaran Anda pada program "${p.programNama}" telah diaktifkan oleh BEING Biro Psikologi.
+
+Silakan akses materi program melalui tautan berikut:
+${link}
+
+Salam,
+BEING Biro Psikologi`;
+  return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
+}
+
+function mailLink(p){
+  const link=accessLink(p.accessToken);
+  const subject=`Akses Program ${p.programNama} - BEING Biro Psikologi`;
+  const body=`Halo ${p.nama},
+
+Pendaftaran Anda pada program "${p.programNama}" telah diaktifkan oleh BEING Biro Psikologi.
+
+Silakan akses materi program melalui tautan berikut:
+${link}
+
+Salam,
+BEING Biro Psikologi`;
+  return `mailto:${encodeURIComponent(p.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+async function refresh(){
+ $('adminKey').value=key();
+ if(!key())return;
+ try{
+  const [ps,us,ms]=await Promise.all([get('adminPrograms'),get('adminParticipants'),get('adminMaterials')]);
+  if(!ps.ok){alert(ps.message||'Kunci admin salah');return}
+  programs=ps.data||[];
+  mProgram.innerHTML=programs.map(p=>`<option value="${esc(p.programId)}">${esc(p.nama)}</option>`).join('');
+  programRows.innerHTML=programs.map(p=>`<tr><td><b>${esc(p.nama)}</b><br><span class="msg">${esc(p.deskripsi||'')}</span></td><td><span class="badge">${esc(p.status)}</span></td><td>
+        <div class="actions">
+          <button class="secondary" onclick="setProgramStatus('${p.programId}','${p.status==='BUKA'?'TUTUP':'BUKA'}')">${p.status==='BUKA'?'Tutup':'Buka'}</button>
+          <button class="danger" onclick='deleteProgram(${JSON.stringify(p.programId)},${JSON.stringify(p.nama)})'>Hapus</button>
+        </div>
+      </td></tr>`).join('');
+  pesertaRows.innerHTML=(us.data||[]).map(p=>`<tr>
+  <td><b>${esc(p.nama)}</b></td>
+  <td>${esc(p.programNama)}</td>
+  <td>${esc(p.email)}<br>${esc(p.wa)}</td>
+  <td>${esc(p.institution||'-')}<br><span class="msg">${esc(p.note||'')}</span></td>
+  <td><span class="badge">${esc(p.status)}</span></td>
+  <td>${p.accessToken?`<div class="actions">
+    <button class="secondary" onclick="copyText(accessLink('${p.accessToken}'))">Salin Link</button>
+    <a class="btn secondary" target="_blank" rel="noopener" href="${waLink(p)}">Kirim WA</a>
+    <a class="btn secondary" href="${mailLink(p)}">Email</a>
+  </div>`:'-'}</td>
+  <td>${p.status!=='AKTIF'?`<button onclick="activate('${p.pesertaId}')">Aktifkan</button>`:'Aktif'}</td>
+</tr>`).join('');
+  materiRows.innerHTML=(ms.data||[]).map(m=>`<tr><td>${esc(m.programNama)}</td><td><b>${esc(m.judul)}</b><br><span class="msg">${esc(m.deskripsi||'')}</span></td><td><span class="badge">${esc(m.status)}</span></td><td><a href="${esc(m.link)}" target="_blank">Buka</a></td><td><button class="secondary" onclick="setMaterialStatus('${m.materiId}','${m.status==='PUBLIKASI'?'DRAFT':'PUBLIKASI'}')">${m.status==='PUBLIKASI'?'Jadikan Draft':'Publikasikan'}</button></td></tr>`).join('');
+ }catch(e){alert('Gagal terhubung ke API. Pastikan API_URL sudah benar.')}
+}
+refresh();
+</script>
+</body></html>
