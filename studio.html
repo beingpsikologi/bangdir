@@ -1,217 +1,182 @@
 <!doctype html>
-<html lang="id">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Studio Pengembangan Diri | BEING Biro Psikologi</title>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio BEING • Pengembangan Diri</title>
+<script src="assets/js/config.js?v=2.2"></script>
 <style>
-:root{--g:#174b3a;--bg:#f5f8f6;--line:#dfe8e3;--mut:#65736c;--danger:#b42318}
-*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:#1e2924}
-.wrap{max-width:1120px;margin:auto;padding:24px}.brand{font-weight:850;color:var(--g);font-size:22px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:18px;box-shadow:0 8px 24px rgba(23,75,58,.05)}
-input,select,textarea{width:100%;padding:11px;border:1px solid #ccd8d2;border-radius:11px;margin:6px 0 10px;font:inherit}
-button{border:0;border-radius:10px;background:var(--g);color:#fff;padding:10px 13px;font-weight:800;cursor:pointer}.secondary{background:#e8f1ed;color:var(--g)}.danger{background:#fff0ee;color:var(--danger)}
-table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut)}
-.badge{padding:4px 8px;border-radius:99px;background:#edf3f0;display:inline-block;font-size:12px}.msg{color:var(--mut);margin-top:8px}.scroll{overflow:auto}.actions{display:flex;gap:7px;flex-wrap:wrap}
-</style>
-</head>
-<body><div class="wrap">
-<div class="brand">BEING • Studio Pengembangan Diri</div>
-<p>Kelola program, peserta, dan materi Pengembangan Diri BEING.</p>
+:root{--g:#124f42;--g2:#1f6d59;--bg:#f5f8f6;--line:#dce7e1;--mut:#65736c;--red:#a33}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:#1d2924}
+.wrap{max-width:1400px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 8px 24px rgba(18,79,66,.05)}
+h1,h2,h3{color:var(--g)}h1{margin:0}.mut{color:var(--mut)}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{margin-bottom:10px}.field label{display:block;font-weight:800;margin-bottom:5px}
+input,select,textarea{width:100%;padding:10px;border:1px solid #cbd8d2;border-radius:10px;font:inherit}
+button,.btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:0;border-radius:10px;background:var(--g);color:#fff;font-weight:800;text-decoration:none;cursor:pointer}
+.secondary{background:#eef4f1;color:var(--g);border:1px solid #cfddd6}.danger{background:#fff0f0;color:var(--red);border:1px solid #e7caca}
+.actions{display:flex;gap:6px;flex-wrap:wrap}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef4f1;color:var(--g);font-weight:800;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px;border-top:1px solid #edf1ef;text-align:left;vertical-align:top}th{color:#617169;background:#fafcfb}
+.scroll{overflow:auto}.filterbar{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.hidden{display:none}
+.notice{padding:10px 12px;background:#eef4f1;border-radius:10px;color:#52645b}
+@media(max-width:900px){.grid,.grid2,.filterbar{grid-template-columns:1fr}.top{display:block}.top .actions{margin-top:10px}}
+</style></head><body><div class="wrap">
+<div class="top"><div><h1>Studio BEING</h1><div class="mut">Pengembangan Diri • v2.2</div></div><div class="actions">
+<a class="btn secondary" href="index.html">Halaman Publik</a>
+<a class="btn secondary" href="akses.html">MyBeing</a>
+<button class="secondary" type="button" onclick="manualRefresh()">Refresh</button>
+<button class="danger" type="button" onclick="logoutStudio()">Keluar</button>
+</div></div>
 
+<div id="loginCard" class="card">
+<h2>Akses Studio</h2><div class="grid2"><input id="adminKeyInput" type="password" placeholder="Kunci Studio"><button onclick="loginStudio()">Masuk</button></div><div id="loginMsg" class="mut"></div>
+</div>
+
+<div id="studio" class="hidden">
 <div class="card">
-<label>Kunci Admin</label>
-<input id="adminKey" type="password" placeholder="Masukkan ADMIN_KEY dari Apps Script">
-<button onclick="saveKey()">Simpan di perangkat ini</button>
-<span id="keyMsg" class="msg"></span>
+<h2>Filter Ekosistem & Program</h2>
+<div class="filterbar"><div class="field"><label>Ekosistem</label><select id="filterKategori"><option value="">Semua Ekosistem</option><option>SHARING KNOWLEDGE</option><option>BOOTCAMP</option><option>SERTIFIKASI BNSP</option></select></div>
+<div class="field"><label>Program</label><select id="filterProgram"><option value="">Semua Program</option></select></div>
+<button class="secondary" onclick="clearFilter()">Reset Filter</button></div>
+<div class="mut">Filter ini berlaku untuk Peserta, Pembayaran, Materi, dan Sesi.</div>
 </div>
 
+<div class="card"><h2>Buat Program</h2>
+<form id="programForm">
 <div class="grid">
-<section class="card">
-<h2>Buat Program</h2>
-<input id="pNama" placeholder="Nama program">
-<textarea id="pDesk" placeholder="Deskripsi singkat"></textarea>
-<input id="pMediaUrl" placeholder="Link flyer / PDF / gambar (Google Drive atau URL langsung)"><div class="msg">Jika dari Google Drive, set izin file: Siapa saja yang memiliki link dapat melihat.</div>
-<select id="pMediaType">
-  <option value="">Tanpa media</option>
-  <option value="IMAGE">Gambar / Flyer (JPG, PNG)</option>
-  <option value="PDF">PDF / Brosur</option>
-  <option value="LINK">Link lainnya</option>
-</select>
-<select id="pStatus"><option>BUKA</option><option>TUTUP</option></select>
-<button onclick="createProgram()">Simpan Program</button><div id="pMsg" class="msg"></div>
-</section>
-
-<section class="card">
-<h2>Tambah Materi</h2>
-<select id="mProgram"></select>
-<input id="mJudul" placeholder="Judul materi">
-<textarea id="mDesk" placeholder="Keterangan"></textarea>
-<input id="mLink" placeholder="https://drive.google.com/...">
-<select id="mStatus"><option>PUBLIKASI</option><option>DRAFT</option></select>
-<button onclick="createMaterial()">Simpan Materi</button><div id="mMsg" class="msg"></div>
-</section>
+<div class="field"><label>Kategori</label><select name="kategori" required><option>SHARING KNOWLEDGE</option><option>BOOTCAMP</option><option>SERTIFIKASI BNSP</option></select></div>
+<div class="field"><label>Nama Program</label><input name="nama" required></div>
+<div class="field"><label>Jenis</label><select name="pricingType" id="pricingType"><option>GRATIS</option><option>BERBAYAR</option></select></div>
+<div class="field"><label>Harga</label><input name="price" id="price" type="number" min="0" value="0"></div>
 </div>
-
-<section class="card"><h2>Program</h2><div class="scroll"><table><thead><tr><th>Program</th><th>Media</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="programRows"></tbody></table></div></section>
-<section class="card"><h2>Peserta</h2><p class="mut">Setelah peserta aktif, gunakan Salin Link, Kirim WA, atau Email untuk memberikan akses MyBeing.</p><div class="scroll"><table><thead><tr><th>Nama</th><th>Program</th><th>Kontak</th><th>Instansi / Catatan</th><th>Status</th><th>Akses</th><th>Aksi</th></tr></thead><tbody id="pesertaRows"></tbody></table></div></section>
-<section class="card"><h2>Materi</h2><div class="scroll"><table><thead><tr><th>Program</th><th>Judul</th><th>Status</th><th>Link</th><th>Aksi</th></tr></thead><tbody id="materiRows"></tbody></table></div></section>
+<div class="grid">
+<div class="field"><label>Tanggal Mulai</label><input name="tanggalMulai" type="date"></div>
+<div class="field"><label>Tanggal Akhir</label><input name="tanggalAkhir" type="date"></div>
+<div class="field"><label>Media/Flyer URL</label><input name="mediaUrl" placeholder="Google Drive / JPG / PDF"></div>
+<div class="field"><label>Status</label><select name="status"><option>BUKA</option><option>TUTUP</option></select></div>
 </div>
+<div class="field"><label>Deskripsi</label><textarea name="deskripsi" rows="3"></textarea></div>
+<button>Simpan Program</button>
+</form></div>
+
+<div class="card"><h2>Program</h2><div class="scroll"><table><thead><tr><th>Ekosistem / Program</th><th>Jenis</th><th>Periode</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="programRows"></tbody></table></div></div>
+
+<div class="card"><h2>Peserta</h2><div class="scroll"><table><thead><tr><th>Peserta</th><th>Ekosistem / Program</th><th>Kontak</th><th>Status</th><th>Akses</th><th>Aksi</th></tr></thead><tbody id="pesertaRows"></tbody></table></div></div>
+
+<div class="card"><h2>Pembayaran</h2><div class="scroll"><table><thead><tr><th>Peserta</th><th>Program</th><th>Nominal</th><th>Bukti</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="paymentRows"></tbody></table></div></div>
+
+<div class="card"><h2>Tambah Materi</h2><form id="materialForm"><div class="grid">
+<div class="field"><label>Program</label><select name="programId" id="mProgram" required></select></div>
+<div class="field"><label>Sesi (opsional)</label><select name="sesiId" id="mSession"><option value="">Materi Umum</option></select></div>
+<div class="field"><label>Judul</label><input name="judul" required></div>
+<div class="field"><label>Link</label><input name="link" required placeholder="https://..."></div></div>
+<div class="field"><label>Deskripsi</label><textarea name="deskripsi" rows="2"></textarea></div><button>Simpan Materi</button></form></div>
+
+<div class="card" id="materiCard"><h2>Materi per Program</h2><div class="scroll"><table><thead><tr><th>Program</th><th>Materi</th><th>Sesi</th><th>Status</th><th>Link</th><th>Aksi</th></tr></thead><tbody id="materiRows"></tbody></table></div></div>
+
+<div class="card"><h2>Tambah Sesi Kegiatan</h2><form id="sessionForm"><div class="grid">
+<div class="field"><label>Program</label><select name="programId" id="sProgram" required></select></div>
+<div class="field"><label>Judul Sesi</label><input name="judul" required></div>
+<div class="field"><label>Tanggal</label><input name="tanggalSesi" type="date" required></div>
+<div class="field"><label>Jam</label><input name="jamSesi" type="time"></div></div>
+<div class="grid2"><div class="field"><label>Zoom URL</label><input name="zoomUrl" placeholder="https://zoom.us/..."></div><div class="field"><label>Zoom Aktif</label><select name="zoomAktif"><option>TIDAK</option><option>YA</option></select></div></div>
+<div class="field"><label>Deskripsi</label><textarea name="deskripsi" rows="2"></textarea></div><button>Simpan Sesi</button></form></div>
+
+<div class="card"><h2>Sesi & Zoom</h2><div class="scroll"><table><thead><tr><th>Program</th><th>Sesi</th><th>Jadwal</th><th>Zoom</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="sessionRows"></tbody></table></div></div>
+</div></div>
 
 <script>
-const API_URL='https://script.google.com/macros/s/AKfycbzvEgNEROBTjx6N3itbJGXVen2OGsV7zDYZeKRiNcmcVDaWkIG9i0BzijTAOS-82QqR/exec';
-let programs=[];
-const $=id=>document.getElementById(id);
-function key(){return localStorage.getItem('beingLiteAdminKey')||''}
-function saveKey(){localStorage.setItem('beingLiteAdminKey',$('adminKey').value.trim());$('keyMsg').textContent='Tersimpan.';refresh()}
-function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-async function get(action,extra={}){const u=new URL(API_URL);Object.entries({action,adminKey:key(),...extra}).forEach(([k,v])=>u.searchParams.set(k,v));const r=await fetch(u);return r.json()}
-async function post(obj){const body=new URLSearchParams();Object.entries({...obj,adminKey:key()}).forEach(([k,v])=>body.append(k,v??''));const r=await fetch(API_URL,{method:'POST',body,redirect:'follow'});const t=await r.text();try{return JSON.parse(t)}catch{throw new Error('Respons API tidak dapat dibaca. Deploy ulang Apps Script.')}}
-async function createProgram(){
- const x=await post({action:'createProgram',nama:pNama.value.trim(),deskripsi:pDesk.value.trim(),status:pStatus.value});pMsg.textContent=x.message||'';if(x.ok){pNama.value='';pDesk.value='';refresh()}
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+let programs=[],participants=[],materials=[],sessions=[],payments=[];
+const key=()=>sessionStorage.getItem('being_admin_key')||'';
+async function get(action,extra={}){const u=new URL(API_URL);Object.entries({action,adminKey:key(),...extra,_:Date.now()}).forEach(([k,v])=>u.searchParams.set(k,v));return fetch(u,{cache:'no-store'}).then(r=>r.json())}
+async function post(action,extra={}){const b=new URLSearchParams({action,adminKey:key(),...extra});return fetch(API_URL,{method:'POST',body:b}).then(r=>r.json())}
+function rupiah(n){return'Rp '+Number(n||0).toLocaleString('id-ID')}
+function normalizeWa(wa){const r=String(wa||'').replace(/\D/g,'');return r.startsWith('0')?'62'+r.slice(1):r}
+function accessLink(t){return new URL('akses.html?access='+encodeURIComponent(t),location.href).toString()}
+function waLink(p){return'https://wa.me/'+normalizeWa(p.wa)+'?text='+encodeURIComponent(`Halo ${p.nama}, akses MyBeing untuk ${p.programNama}:\n${accessLink(p.accessToken)}\n\nSalam,\nBEING Biro Psikologi`)}
+function mailLink(p){return'mailto:'+encodeURIComponent(p.email)+'?subject='+encodeURIComponent('Akses MyBeing - '+p.programNama)+'&body='+encodeURIComponent(`Halo ${p.nama},\n\nAkses MyBeing Anda:\n${accessLink(p.accessToken)}\n\nSalam,\nBEING Biro Psikologi`)}
+function loginStudio(){sessionStorage.setItem('being_admin_key',$('adminKeyInput').value.trim());refresh(true)}
+function clearFilter(){$('filterKategori').value='';$('filterProgram').value='';renderAll()}
+function filterOk(programId){
+ const p=programs.find(x=>x.programId===programId)||{};
+ const k=$('filterKategori').value,pr=$('filterProgram').value;
+ return(!k||p.kategori===k)&&(!pr||programId===pr)
 }
-async function createMaterial(){
- const x=await post({action:'createMaterial',programId:mProgram.value,judul:mJudul.value.trim(),deskripsi:mDesk.value.trim(),link:mLink.value.trim(),status:mStatus.value});mMsg.textContent=x.message||'';if(x.ok){mJudul.value='';mDesk.value='';mLink.value='';refresh()}
+function updateProgramFilter(){
+ const k=$('filterKategori').value,cur=$('filterProgram').value;
+ const list=programs.filter(p=>!k||p.kategori===k);
+ $('filterProgram').innerHTML='<option value="">Semua Program</option>'+list.map(p=>`<option value="${esc(p.programId)}">${esc(p.nama)}</option>`).join('');
+ if(list.some(p=>p.programId===cur))$('filterProgram').value=cur;
 }
-async function activate(id){
- const x=await post({action:'activateParticipant',pesertaId:id});alert(x.message||'Selesai');refresh()
+function populateProgramSelects(){
+ const opt=programs.map(p=>`<option value="${esc(p.programId)}">${esc(p.kategori)} • ${esc(p.nama)}</option>`).join('');
+ $('mProgram').innerHTML=opt;$('sProgram').innerHTML=opt;updateProgramFilter();updateMaterialSessionSelect()
 }
-async function setProgramStatus(id,status){await post({action:'setProgramStatus',programId:id,status});refresh()}
-async function deleteProgram(id,nama){
-  const yakin=confirm(`Hapus program "${nama}"?\n\nProgram yang sudah memiliki peserta atau materi tidak akan dihapus untuk menjaga data.`);
-  if(!yakin) return;
-
-  try{
-    const x=await post({action:'deleteProgram',programId:id});
-    alert(x.message||'Selesai');
-    if(x.ok) refresh();
-  }catch(e){
-    alert('Gagal menghapus program: '+e.message);
-  }
+function updateMaterialSessionSelect(){
+ const pid=$('mProgram').value;
+ $('mSession').innerHTML='<option value="">Materi Umum</option>'+sessions.filter(s=>s.programId===pid).map(s=>`<option value="${esc(s.sesiId)}">${esc(s.judul)} • ${esc(s.tanggalSesi)}</option>`).join('')
 }
+function renderAll(){
+ updateProgramFilter();
+ $('programRows').innerHTML=programs.map(p=>`<tr><td><b>${esc(p.kategori)}</b><br>${esc(p.nama)}<br><span class="mut">${esc(p.deskripsi||'')}</span></td><td><span class="badge">${esc(p.pricingType)}</span><br>${p.pricingType==='BERBAYAR'?rupiah(p.price):'Gratis'}</td><td>${esc(p.tanggalMulai||'-')}<br>${esc(p.tanggalAkhir||'-')}</td><td><span class="badge">${esc(p.status)}</span>${p.selesai?'<br><span class="mut">Periode selesai</span>':''}</td><td><div class="actions"><button class="secondary" onclick="setProgramStatus('${p.programId}','${p.status==='BUKA'?'TUTUP':'BUKA'}')">${p.status==='BUKA'?'Tutup':'Buka'}</button><button class="secondary" onclick="focusMaterials('${p.programId}','${esc(p.kategori)}')">Cek Materi</button><button class="danger" onclick="deleteProgram('${p.programId}')">Hapus</button></div></td></tr>`).join('');
 
-async function setProgramMedia(id,currentUrl='',currentType=''){
-  const url=prompt('Tempel link flyer / PDF program:', currentUrl || '');
-  if(url===null) return;
+ const ps=participants.filter(p=>filterOk(p.programId));
+ $('pesertaRows').innerHTML=ps.map(p=>`<tr><td><b>${esc(p.nama)}</b><br><span class="mut">${esc(p.institution||'')}</span></td><td>${esc(p.kategori)}<br><b>${esc(p.programNama)}</b><br><span class="badge">${esc(p.pricingType)}</span></td><td>${esc(p.email)}<br>${esc(p.wa)}</td><td><span class="badge">${esc(p.status)}</span>${p.paymentStatus?'<br><span class="mut">'+esc(p.paymentStatus)+'</span>':''}</td><td>${p.status==='AKTIF'&&p.accessToken?`<div class="actions"><button class="secondary" onclick="navigator.clipboard.writeText('${accessLink(p.accessToken)}')">Salin Link</button><a class="btn secondary" target="_blank" href="${waLink(p)}">WA</a><a class="btn secondary" href="${mailLink(p)}">Email</a></div>`:'-'}</td><td><button class="danger" onclick="deleteParticipant('${p.pesertaId}')">Hapus</button></td></tr>`).join('');
 
-  let type=currentType || '';
-  if(url.trim()){
-    const answer=prompt('Jenis media: IMAGE untuk JPG/PNG, PDF untuk PDF, LINK untuk link lainnya:', type || 'IMAGE');
-    if(answer===null) return;
-    type=String(answer||'').trim().toUpperCase();
-    if(!['IMAGE','PDF','LINK'].includes(type)) type='';
-  }else{
-    type='';
-  }
+ const pay=payments.filter(p=>filterOk(p.programId));
+ $('paymentRows').innerHTML=pay.map(p=>`<tr><td><b>${esc(p.nama)}</b><br>${esc(p.email)}</td><td>${esc(p.kategori)}<br>${esc(p.programNama)}</td><td>${rupiah(p.amount)}</td><td>${p.proofUrl?`<a target="_blank" href="${esc(p.proofUrl)}">Buka Bukti</a>`:'-'}</td><td><span class="badge">${esc(p.status)}</span></td><td><div class="actions">${p.status==='MENUNGGU_VERIFIKASI'?`<button onclick="approvePayment('${p.paymentId}')">Approve & Aktifkan</button><button class="danger" onclick="rejectPayment('${p.paymentId}')">Tolak</button>`:''}<button class="danger" onclick="deletePayment('${p.paymentId}')">Hapus</button></div></td></tr>`).join('');
 
-  try{
-    const x=await post({
-      action:'setProgramMedia',
-      programId:id,
-      mediaUrl:url.trim(),
-      mediaType:type
-    });
-    alert(x.message||'Selesai');
-    refresh();
-  }catch(e){
-    alert('Gagal menyimpan media: '+e.message);
-  }
+ const ms=materials.filter(m=>filterOk(m.programId));
+ $('materiRows').innerHTML=ms.map(m=>`<tr><td>${esc(m.kategori)}<br><b>${esc(m.programNama)}</b></td><td><b>${esc(m.judul)}</b><br><span class="mut">${esc(m.deskripsi||'')}</span></td><td>${esc(m.sesiNama||'Umum')}</td><td><span class="badge">${esc(m.status)}</span></td><td><a target="_blank" href="${esc(m.link)}">Buka</a></td><td><div class="actions"><button class="secondary" onclick="setMaterialStatus('${m.materiId}','${m.status==='PUBLIKASI'?'DRAFT':'PUBLIKASI'}')">${m.status==='PUBLIKASI'?'Draft':'Publikasi'}</button><button class="danger" onclick="deleteMaterial('${m.materiId}')">Hapus</button></div></td></tr>`).join('');
+
+ const ss=sessions.filter(s=>filterOk(s.programId));
+ $('sessionRows').innerHTML=ss.map(s=>`<tr><td>${esc(s.kategori)}<br><b>${esc(s.programNama)}</b></td><td><b>${esc(s.judul)}</b><br><span class="mut">${esc(s.deskripsi||'')}</span></td><td>${esc(s.tanggalSesi)} ${esc(s.jamSesi||'')}</td><td>${s.zoomUrl?`<a target="_blank" href="${esc(s.zoomUrl)}">Zoom</a><br><span class="badge">${s.zoomAktif?'AKTIF':'NONAKTIF'}</span>`:'-'}</td><td><span class="badge">${esc(s.status)}</span></td><td><div class="actions"><button class="secondary" onclick="toggleZoom('${s.sesiId}',${!s.zoomAktif})">${s.zoomAktif?'Matikan Zoom':'Aktifkan Zoom'}</button><button class="secondary" onclick="setSessionStatus('${s.sesiId}','${s.status==='PUBLIKASI'?'DRAFT':'PUBLIKASI'}')">${s.status==='PUBLIKASI'?'Draft':'Publikasi'}</button><button class="danger" onclick="deleteSession('${s.sesiId}')">Hapus</button></div></td></tr>`).join('');
 }
-
-async function setMaterialStatus(id,status){await post({action:'setMaterialStatus',materiId:id,status});refresh()}
-async function copyText(text){
-  try{
-    if(navigator.clipboard && window.isSecureContext){
-      await navigator.clipboard.writeText(text);
-    }else{
-      const area=document.createElement('textarea');
-      area.value=text;
-      area.setAttribute('readonly','');
-      area.style.position='fixed';
-      area.style.left='-9999px';
-      document.body.appendChild(area);
-      area.focus();
-      area.select();
-      const ok=document.execCommand('copy');
-      document.body.removeChild(area);
-      if(!ok) throw new Error('copy failed');
-    }
-    alert('Link akses peserta berhasil disalin.');
-  }catch(err){
-    prompt('Salin link akses peserta berikut:',text);
-  }
-}
-
-function accessLink(token){
-  const u=new URL('akses.html',location.href);
-  u.searchParams.set('access',token);
-  return u.toString();
-}
-
-function normalizeWa(wa){
-  const raw=String(wa||'').replace(/\D/g,'');
-  if(!raw) return '';
-  if(raw.startsWith('0')) return '62'+raw.slice(1);
-  if(raw.startsWith('62')) return raw;
-  return raw;
-}
-
-function waLink(p){
-  const num=normalizeWa(p.wa);
-  const link=accessLink(p.accessToken);
-  const text=`Halo ${p.nama}, pendaftaran Anda pada program "${p.programNama}" telah diaktifkan oleh BEING Biro Psikologi.
-
-Silakan akses materi program melalui tautan berikut:
-${link}
-
-Salam,
-BEING Biro Psikologi`;
-  return `https://wa.me/${num}?text=${encodeURIComponent(text)}`;
-}
-
-function mailLink(p){
-  const link=accessLink(p.accessToken);
-  const subject=`Akses Program ${p.programNama} - BEING Biro Psikologi`;
-  const body=`Halo ${p.nama},
-
-Pendaftaran Anda pada program "${p.programNama}" telah diaktifkan oleh BEING Biro Psikologi.
-
-Silakan akses materi program melalui tautan berikut:
-${link}
-
-Salam,
-BEING Biro Psikologi`;
-  return `mailto:${encodeURIComponent(p.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-async function refresh(){
- $('adminKey').value=key();
- if(!key())return;
+async function refresh(showLoginError=false){
  try{
-  const [ps,us,ms]=await Promise.all([get('adminPrograms'),get('adminParticipants'),get('adminMaterials')]);
-  if(!ps.ok){alert(ps.message||'Kunci admin salah');return}
-  programs=ps.data||[];
-  mProgram.innerHTML=programs.map(p=>`<option value="${esc(p.programId)}">${esc(p.nama)}</option>`).join('');
-  programRows.innerHTML=programs.map(p=>`<tr><td><b>${esc(p.nama)}</b><br><span class="msg">${esc(p.deskripsi||'')}</span></td><td><span class="badge">${esc(p.status)}</span></td><td>
-        <div class="actions">
-          <button class="secondary" onclick="setProgramStatus('${p.programId}','${p.status==='BUKA'?'TUTUP':'BUKA'}')">${p.status==='BUKA'?'Tutup':'Buka'}</button>
-          <button class="danger" onclick='deleteProgram(${JSON.stringify(p.programId)},${JSON.stringify(p.nama)})'>Hapus</button>
-        </div>
-      </td></tr>`).join('');
-  pesertaRows.innerHTML=(us.data||[]).map(p=>`<tr>
-  <td><b>${esc(p.nama)}</b></td>
-  <td>${esc(p.programNama)}</td>
-  <td>${esc(p.email)}<br>${esc(p.wa)}</td>
-  <td>${esc(p.institution||'-')}<br><span class="msg">${esc(p.note||'')}</span></td>
-  <td><span class="badge">${esc(p.status)}</span></td>
-  <td>${p.accessToken?`<div class="actions">
-    <button class="secondary" onclick="copyText(accessLink('${p.accessToken}'))">Salin Link</button>
-    <a class="btn secondary" target="_blank" rel="noopener" href="${waLink(p)}">Kirim WA</a>
-    <a class="btn secondary" href="${mailLink(p)}">Email</a>
-  </div>`:'-'}</td>
-  <td>${p.status!=='AKTIF'?`<button onclick="activate('${p.pesertaId}')">Aktifkan</button>`:'Aktif'}</td>
-</tr>`).join('');
-  materiRows.innerHTML=(ms.data||[]).map(m=>`<tr><td>${esc(m.programNama)}</td><td><b>${esc(m.judul)}</b><br><span class="msg">${esc(m.deskripsi||'')}</span></td><td><span class="badge">${esc(m.status)}</span></td><td><a href="${esc(m.link)}" target="_blank">Buka</a></td><td><button class="secondary" onclick="setMaterialStatus('${m.materiId}','${m.status==='PUBLIKASI'?'DRAFT':'PUBLIKASI'}')">${m.status==='PUBLIKASI'?'Jadikan Draft':'Publikasikan'}</button></td></tr>`).join('');
- }catch(e){alert('Gagal terhubung ke API. Pastikan API_URL sudah benar.')}
+  const [a,b,c,d,e]=await Promise.all([get('adminPrograms'),get('adminParticipants'),get('adminMaterials'),get('adminSessions'),get('adminPayments')]);
+  if(!a.ok)throw new Error(a.message||'Kunci Studio tidak valid');
+  programs=a.data||[];participants=b.data||[];materials=c.data||[];sessions=d.data||[];payments=e.data||[];
+  $('loginCard').classList.add('hidden');$('studio').classList.remove('hidden');populateProgramSelects();renderAll()
+ }catch(err){$('studio').classList.add('hidden');$('loginCard').classList.remove('hidden');if(showLoginError)$('loginMsg').textContent=err.message||'Gagal masuk'}
 }
-refresh();
-</script>
-</body></html>
+$('filterKategori').onchange=()=>{updateProgramFilter();renderAll()};$('filterProgram').onchange=renderAll;$('mProgram').onchange=updateMaterialSessionSelect;
+$('pricingType').onchange=()=>{$('price').disabled=$('pricingType').value==='GRATIS';if($('price').disabled)$('price').value=0};
+
+$('programForm').onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),x=await post('createProgram',Object.fromEntries(d));alert(x.message);if(x.ok){e.currentTarget.reset();refresh()}};
+$('materialForm').onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),x=await post('createMaterial',Object.fromEntries(d));alert(x.message);if(x.ok){e.currentTarget.reset();refresh()}};
+$('sessionForm').onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),x=await post('createSession',Object.fromEntries(d));alert(x.message);if(x.ok){e.currentTarget.reset();refresh()}};
+
+async function simple(action,data,msg){if(msg&&!confirm(msg))return;const x=await post(action,data);alert(x.message);if(x.ok)refresh()}
+const setProgramStatus=(id,status)=>simple('setProgramStatus',{programId:id,status});
+const deleteProgram=id=>simple('deleteProgram',{programId:id},'Hapus program ini?');
+const deleteParticipant=id=>simple('deleteParticipant',{pesertaId:id},'Hapus data peserta pada program ini?');
+const approvePayment=id=>simple('approvePayment',{paymentId:id},'Verifikasi pembayaran dan aktifkan peserta?');
+const rejectPayment=id=>simple('rejectPayment',{paymentId:id,note:prompt('Catatan penolakan:','Bukti pembayaran belum dapat diverifikasi.')||''});
+const deletePayment=id=>simple('deletePayment',{paymentId:id},'Hapus riwayat pembayaran ini?');
+const setMaterialStatus=(id,status)=>simple('setMaterialStatus',{materiId:id,status});
+const deleteMaterial=id=>simple('deleteMaterial',{materiId:id},'Hapus materi ini?');
+const setSessionStatus=(id,status)=>simple('setSessionStatus',{sesiId:id,status});
+const toggleZoom=(id,on)=>simple('toggleSessionZoom',{sesiId:id,zoomAktif:on?'YA':'TIDAK'});
+const deleteSession=id=>simple('deleteSession',{sesiId:id},'Hapus sesi ini?');
+function focusMaterials(programId,kategori){$('filterKategori').value=kategori;updateProgramFilter();$('filterProgram').value=programId;renderAll();$('materiCard').scrollIntoView({behavior:'smooth'})}
+
+async function manualRefresh(){
+  const btns=[...document.querySelectorAll('button')];
+  const refreshBtn=btns.find(b=>b.textContent.trim()==='Refresh');
+  if(refreshBtn){refreshBtn.disabled=true;refreshBtn.textContent='Memuat...';}
+  try{
+    await refresh(false);
+  }finally{
+    if(refreshBtn){refreshBtn.disabled=false;refreshBtn.textContent='Refresh';}
+  }
+}
+function logoutStudio(){
+  sessionStorage.removeItem('being_admin_key');
+  $('adminKeyInput').value='';
+  $('loginMsg').textContent='Anda telah keluar dari Studio.';
+  $('studio').classList.add('hidden');
+  $('loginCard').classList.remove('hidden');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+if(key())refresh();
+</script></body></html>

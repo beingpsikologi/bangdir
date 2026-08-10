@@ -1,462 +1,98 @@
 /**
- * BEING - PENGEMBANGAN DIRI • BACKEND SEDERHANA v1.8
- * Backend terpisah dari sistem Pengembangan Diri utama.
+ * BEING - PENGEMBANGAN DIRI • BACKEND v2.2
+ * Multi program • Gratis/Berbayar • Verifikasi Pembayaran • Filter Ekosistem
  */
-
-const CONFIG = {
-  SPREADSHEET_ID: 'GANTI_DENGAN_SPREADSHEET_ID_BARU',
-  ADMIN_KEY: 'GANTI_DENGAN_KUNCI_ADMIN_YANG_PANJANG',
-  WEB_BASE_URL: 'https://USERNAME.github.io/NAMA-REPO/'
+const CONFIG={
+  SPREADSHEET_ID:'1jzx2Sna9p0a3wbhxAcqubxqGBcHEo585Ku34AInfG14',
+  ADMIN_KEY:'being123456',
+  WEB_BASE_URL:'https://bangdir.beingpsikologi.com/',
+  ADMIN_EMAIL:'adminbeing@gmail.com',
+  PAYMENT_BANK_NAME:'BANK BEING',
+  PAYMENT_ACCOUNT_NUMBER:'0000000000',
+  PAYMENT_ACCOUNT_HOLDER:'BEING BIRO PSIKOLOGI',
+  PAYMENT_QRIS_URL:'',
+  PAYMENT_FOLDER_ID:''
 };
-
-const SHEETS = {
-  PROGRAM: ['ProgramID','Nama','Deskripsi','Status','Tanggal','MediaURL','MediaType'],
-  PESERTA: ['PesertaID','ProgramID','Nama','Email','WA','Instansi','Catatan','Status','AccessToken','TanggalDaftar','TanggalAktif'],
-  MATERI: ['MateriID','ProgramID','Judul','Deskripsi','Link','Status','Tanggal']
+const SHEETS={
+ PROGRAM:['ProgramID','Nama','Kategori','Deskripsi','Status','PricingType','Price','TanggalMulai','TanggalAkhir','Tanggal','MediaURL','MediaType'],
+ PESERTA:['PesertaID','ProgramID','Nama','Email','WA','Instansi','Catatan','Status','PaymentStatus','AccessToken','TanggalDaftar','TanggalAktif'],
+ SESI:['SesiID','ProgramID','Judul','Deskripsi','TanggalSesi','JamSesi','ZoomURL','ZoomAktif','Status','Tanggal'],
+ MATERI:['MateriID','ProgramID','SesiID','Judul','Deskripsi','Link','Status','Tanggal'],
+ PEMBAYARAN:['PaymentID','PesertaID','ProgramID','Nama','Email','Amount','ProofURL','Status','TanggalKirim','TanggalVerifikasi','Catatan']
 };
+function setupBeingLite(){const ss=SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);Object.keys(SHEETS).forEach(name=>{let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);ensureHeaders_(sh,SHEETS[name])});return'Setup v2.2 selesai.'}
+function setupBeingSederhana(){return setupBeingLite()}
+function ensureHeaders_(sh,required){if(sh.getLastRow()===0){sh.getRange(1,1,1,required.length).setValues([required]);sh.setFrozenRows(1);return}const current=sh.getRange(1,1,1,Math.max(sh.getLastColumn(),1)).getValues()[0].map(v=>String(v).trim());required.forEach(h=>{if(!current.includes(h)){sh.getRange(1,sh.getLastColumn()+1).setValue(h);current.push(h)}});sh.setFrozenRows(1)}
+function out(o){return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON)}
+function ss_(){return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID)}
+function sh_(n){const s=ss_().getSheetByName(n);if(!s)throw new Error('Sheet '+n+' belum ada. Jalankan setupBeingLite().');return s}
+function rows_(n){const v=sh_(n).getDataRange().getValues();if(v.length<2)return[];const h=v.shift().map(x=>String(x).trim());return v.filter(r=>r.some(x=>x!==''&&x!==null)).map(r=>Object.fromEntries(h.map((x,i)=>[x,r[i]])))}
+function appendObject_(n,o){const s=sh_(n),h=s.getRange(1,1,1,s.getLastColumn()).getValues()[0].map(x=>String(x).trim());s.appendRow(h.map(k=>Object.prototype.hasOwnProperty.call(o,k)?o[k]:''))}
+function headerMap_(s){const h=s.getRange(1,1,1,s.getLastColumn()).getValues()[0],m={};h.forEach((x,i)=>m[String(x).trim()]=i+1);return m}
+function requireAdmin_(k){if(!k||String(k)!==String(CONFIG.ADMIN_KEY))throw new Error('Kunci admin tidak valid.')}
+function id_(p){return p+'-'+Utilities.getUuid().replace(/-/g,'').slice(0,10).toUpperCase()}
+function token_(){return'BEING-'+Utilities.getUuid().replace(/-/g,'').slice(0,8).toUpperCase()}
+function now_(){return new Date()}
+function dateOnly_(v){if(!v)return'';const d=v instanceof Date?v:new Date(v);if(isNaN(d.getTime()))return String(v||'');return Utilities.formatDate(d,Session.getScriptTimeZone()||'Asia/Jakarta','yyyy-MM-dd')}
+function hasEnded_(v){const e=dateOnly_(v);if(!e)return false;const t=Utilities.formatDate(new Date(),Session.getScriptTimeZone()||'Asia/Jakarta','yyyy-MM-dd');return e<t}
+function normalizeCategory_(v){const r=String(v||'').trim().toUpperCase();if(r==='BOOT CAMP')return'BOOTCAMP';if(r==='SERTIFIKASI'||r==='BNSP')return'SERTIFIKASI BNSP';if(['SHARING KNOWLEDGE','BOOTCAMP','SERTIFIKASI BNSP'].includes(r))return r;return'SHARING KNOWLEDGE'}
+function pricing_(v){return String(v||'GRATIS').trim().toUpperCase()==='BERBAYAR'?'BERBAYAR':'GRATIS'}
+function inferMediaType_(url,exp){const t=String(exp||'').trim().toUpperCase();if(t)return t;const u=String(url||'').toLowerCase();if(/\.(jpg|jpeg|png|webp)(\?|$)/.test(u))return'IMAGE';if(/\.pdf(\?|$)/.test(u))return'PDF';return u?'LINK':''}
 
-function setupBeingLite(){
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+function doGet(e){try{const p=e&&e.parameter?e.parameter:{},a=p.action||'';if(a==='ping')return out({ok:true,message:'BEING v2.2 aktif'});if(a==='publicPrograms')return out({ok:true,data:getPublicPrograms_()});if(a==='portal')return out(getPortal_(p.token||'',p.programId||''));requireAdmin_(p.adminKey);if(a==='adminPrograms')return out({ok:true,data:getPrograms_()});if(a==='adminParticipants')return out({ok:true,data:getParticipants_()});if(a==='adminMaterials')return out({ok:true,data:getMaterials_()});if(a==='adminSessions')return out({ok:true,data:getSessions_()});if(a==='adminPayments')return out({ok:true,data:getPayments_()});return out({ok:false,message:'Action tidak dikenal'})}catch(err){return out({ok:false,message:String(err.message||err)})}}
+function doPost(e){try{let b={};if(e&&e.parameter&&Object.keys(e.parameter).length)b=e.parameter;else if(e&&e.postData&&e.postData.contents){try{b=JSON.parse(e.postData.contents)}catch(_){}}const a=b.action||'';if(a==='register')return out(register_(b));if(a==='submitPayment')return out(submitPayment_(b));requireAdmin_(b.adminKey);
+ const map={createProgram:createProgram_,setProgramStatus:setProgramStatus_,setProgramMedia:setProgramMedia_,deleteProgram:deleteProgram_,createMaterial:createMaterial_,setMaterialStatus:setMaterialStatus_,deleteMaterial:deleteMaterial_,createSession:createSession_,setSessionStatus:setSessionStatus_,toggleSessionZoom:toggleSessionZoom_,deleteSession:deleteSession_,deleteParticipant:deleteParticipant_,approvePayment:approvePayment_,rejectPayment:rejectPayment_,deletePayment:deletePayment_,sendAccessEmail:sendAccessEmailAction_};
+ if(map[a])return out(map[a](b));return out({ok:false,message:'Action tidak dikenal'})}catch(err){return out({ok:false,message:String(err.message||err)})}}
 
-  Object.keys(SHEETS).forEach(name=>{
-    let sh = ss.getSheetByName(name);
-    if(!sh) sh = ss.insertSheet(name);
+function getPrograms_(){return rows_('PROGRAM').map(r=>({programId:String(r.ProgramID||''),nama:String(r.Nama||''),kategori:normalizeCategory_(r.Kategori),deskripsi:String(r.Deskripsi||''),status:String(r.Status||'').trim().toUpperCase(),pricingType:pricing_(r.PricingType),price:Number(r.Price||0),tanggalMulai:dateOnly_(r.TanggalMulai),tanggalAkhir:dateOnly_(r.TanggalAkhir),selesai:hasEnded_(r.TanggalAkhir),tanggal:dateOnly_(r.Tanggal),mediaUrl:String(r.MediaURL||''),mediaType:inferMediaType_(r.MediaURL,r.MediaType)}))}
+function getPublicPrograms_(){return getPrograms_().filter(p=>p.status==='BUKA'&&!p.selesai)}
+function createProgram_(b){const nama=String(b.nama||'').trim();if(!nama)return{ok:false,message:'Nama program wajib diisi.'};const type=pricing_(b.pricingType),price=type==='GRATIS'?0:Number(b.price||0);if(type==='BERBAYAR'&&price<=0)return{ok:false,message:'Program berbayar harus memiliki harga.'};const tm=String(b.tanggalMulai||''),ta=String(b.tanggalAkhir||'');if(tm&&ta&&ta<tm)return{ok:false,message:'Tanggal akhir tidak boleh lebih awal dari tanggal mulai.'};appendObject_('PROGRAM',{ProgramID:id_('PRG'),Nama:nama,Kategori:normalizeCategory_(b.kategori),Deskripsi:String(b.deskripsi||'').trim(),Status:String(b.status||'BUKA').toUpperCase(),PricingType:type,Price:price,TanggalMulai:tm,TanggalAkhir:ta,Tanggal:now_(),MediaURL:String(b.mediaUrl||'').trim(),MediaType:inferMediaType_(b.mediaUrl,b.mediaType)});return{ok:true,message:'Program berhasil dibuat.'}}
+function setProgramStatus_(b){updateById_('PROGRAM','ProgramID',b.programId,'Status',String(b.status||'').toUpperCase());return{ok:true,message:'Status program diperbarui.'}}
+function setProgramMedia_(b){updateById_('PROGRAM','ProgramID',b.programId,'MediaURL',String(b.mediaUrl||''));updateById_('PROGRAM','ProgramID',b.programId,'MediaType',inferMediaType_(b.mediaUrl,b.mediaType));return{ok:true,message:'Media program diperbarui.'}}
+function deleteProgram_(b){const id=String(b.programId||'');const c1=rows_('PESERTA').filter(r=>String(r.ProgramID)===id).length,c2=rows_('MATERI').filter(r=>String(r.ProgramID)===id).length,c3=rows_('SESI').filter(r=>String(r.ProgramID)===id).length,c4=rows_('PEMBAYARAN').filter(r=>String(r.ProgramID)===id).length;if(c1+c2+c3+c4>0)return{ok:false,message:`Program masih memiliki ${c1} peserta, ${c2} materi, ${c3} sesi, ${c4} pembayaran. Hapus data terkait atau tutup program.`};return deleteById_('PROGRAM','ProgramID',id)?{ok:true,message:'Program dihapus.'}:{ok:false,message:'Program tidak ditemukan.'}}
 
-    if(sh.getLastRow() === 0){
-      sh.getRange(1,1,1,SHEETS[name].length).setValues([SHEETS[name]]);
-    } else {
-      ensureHeaders_(sh, SHEETS[name]);
-    }
-    sh.setFrozenRows(1);
-  });
-
-  // Memperbaiki otomatis program yang sempat bergeser akibat versi 1.7.
-  repairProgramRows_();
-
-  return 'Setup selesai. Header dan data PROGRAM sudah diperiksa.';
-}
-
-function setupBeingSederhana(){
-  return setupBeingLite();
-}
-
-function ensureHeaders_(sh, required){
-  const lastCol = Math.max(sh.getLastColumn(),1);
-  const current = sh.getRange(1,1,1,lastCol).getValues()[0].map(v=>String(v).trim());
-
-  required.forEach(header=>{
-    if(!current.includes(header)){
-      sh.getRange(1,sh.getLastColumn()+1).setValue(header);
-      current.push(header);
-    }
-  });
-}
-
-function headerMap_(sh){
-  const headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(v=>String(v).trim());
-  const map = {};
-  headers.forEach((h,i)=>map[h]=i+1);
-  return map;
-}
-
-function appendObject_(sheetName, obj){
-  const sh = sh_(sheetName);
-  const headers = sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(v=>String(v).trim());
-  const row = headers.map(h => Object.prototype.hasOwnProperty.call(obj,h) ? obj[h] : '');
-  sh.appendRow(row);
-}
-
-function repairProgramRows_(){
-  const sh = sh_('PROGRAM');
-  if(sh.getLastRow() < 2) return;
-
-  const map = headerMap_(sh);
-  const required = ['Status','Tanggal','MediaURL','MediaType'];
-  if(required.some(h=>!map[h])) return;
-
-  const lastRow = sh.getLastRow();
-
-  for(let r=2;r<=lastRow;r++){
-    const status = String(sh.getRange(r,map.Status).getValue() || '').trim();
-    const tanggal = sh.getRange(r,map.Tanggal).getValue();
-    const mediaUrl = String(sh.getRange(r,map.MediaURL).getValue() || '').trim();
-    const mediaTypeRaw = sh.getRange(r,map.MediaType).getValue();
-    const mediaType = String(mediaTypeRaw || '').trim();
-
-    // Pola data salah versi 1.7:
-    // Status = URL
-    // Tanggal = IMAGE/PDF/LINK
-    // MediaURL = BUKA/TUTUP
-    // MediaType = tanggal
-    const looksUrl = /^https?:\/\//i.test(status);
-    const looksType = /^(IMAGE|PDF|LINK)$/i.test(String(tanggal || '').trim());
-    const looksStatus = /^(BUKA|TUTUP)$/i.test(mediaUrl);
-
-    if(looksUrl && looksType && looksStatus){
-      sh.getRange(r,map.MediaURL).setValue(status);
-      sh.getRange(r,map.MediaType).setValue(String(tanggal).toUpperCase());
-      sh.getRange(r,map.Status).setValue(mediaUrl);
-      sh.getRange(r,map.Tanggal).setValue(mediaTypeRaw || new Date());
-    }
-  }
-}
-
-function doGet(e){
-  try{
-    const p = e && e.parameter ? e.parameter : {};
-    const action = p.action || 'ping';
-
-    if(action === 'ping') return out({ok:true,message:'BEING Pengembangan Diri API aktif'});
-    if(action === 'publicPrograms') return out({ok:true,data:getPublicPrograms_()});
-    if(action === 'portal') return out(getPortal_(p.token || ''));
-
-    requireAdmin_(p.adminKey);
-
-    if(action === 'adminPrograms') return out({ok:true,data:getPrograms_()});
-    if(action === 'adminParticipants') return out({ok:true,data:getParticipants_()});
-    if(action === 'adminMaterials') return out({ok:true,data:getMaterials_()});
-
-    return out({ok:false,message:'Action tidak dikenal'});
-  }catch(err){
-    return out({ok:false,message:String(err.message || err)});
-  }
-}
-
-function doPost(e){
-  try{
-    let body = {};
-
-    if(e && e.parameter && Object.keys(e.parameter).length){
-      body = e.parameter;
-    } else if(e && e.postData && e.postData.contents){
-      try{ body = JSON.parse(e.postData.contents); }
-      catch(_){ body = {}; }
-    }
-
-    const action = body.action || '';
-
-    if(action === 'register') return out(register_(body));
-
-    requireAdmin_(body.adminKey);
-
-    if(action === 'createProgram') return out(createProgram_(body));
-    if(action === 'createMaterial') return out(createMaterial_(body));
-    if(action === 'activateParticipant') return out(activateParticipant_(body));
-    if(action === 'setProgramStatus') return out(setProgramStatus_(body));
-    if(action === 'setProgramMedia') return out(setProgramMedia_(body));
-    if(action === 'deleteProgram') return out(deleteProgram_(body));
-    if(action === 'setMaterialStatus') return out(setMaterialStatus_(body));
-
-    return out({ok:false,message:'Action tidak dikenal'});
-  }catch(err){
-    return out({ok:false,message:String(err.message || err)});
-  }
-}
-
-function out(obj){
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function ss_(){
-  return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
-}
-
-function sh_(name){
-  const sh = ss_().getSheetByName(name);
-  if(!sh) throw new Error('Sheet '+name+' belum ada. Jalankan setupBeingLite().');
-  return sh;
-}
-
-function rows_(name){
-  const sh = sh_(name);
-  const values = sh.getDataRange().getValues();
-  if(values.length < 2) return [];
-
-  const headers = values.shift().map(v=>String(v).trim());
-
-  return values
-    .filter(r=>r.some(v=>v !== '' && v !== null))
-    .map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]])));
-}
-
-function requireAdmin_(key){
-  if(!key || String(key) !== String(CONFIG.ADMIN_KEY)){
-    throw new Error('Kunci admin tidak valid.');
-  }
-}
-
-function id_(prefix){
-  return prefix+'-'+Utilities.getUuid().replace(/-/g,'').slice(0,10).toUpperCase();
-}
-
-function token_(){
-  return 'BEING-'+Utilities.getUuid().replace(/-/g,'').slice(0,8).toUpperCase();
-}
-
-function now_(){
-  return new Date();
-}
-
-function inferMediaType_(url, explicit){
-  const t = String(explicit || '').trim().toUpperCase();
-  if(t) return t;
-
-  const u = String(url || '').toLowerCase();
-  if(/\.(jpg|jpeg|png|webp)(\?|$)/.test(u)) return 'IMAGE';
-  if(/\.pdf(\?|$)/.test(u)) return 'PDF';
-
-  return u ? 'LINK' : '';
-}
-
-function getPrograms_(){
-  return rows_('PROGRAM').map(r=>({
-    programId:String(r.ProgramID || ''),
-    nama:String(r.Nama || ''),
-    deskripsi:String(r.Deskripsi || ''),
-    mediaUrl:String(r.MediaURL || ''),
-    mediaType:inferMediaType_(r.MediaURL, r.MediaType),
-    status:String(r.Status || '').trim().toUpperCase(),
-    tanggal:r.Tanggal || ''
-  }));
-}
-
-function getPublicPrograms_(){
-  return getPrograms_().filter(p=>p.status === 'BUKA');
-}
-
-function createProgram_(b){
-  const nama = String(b.nama || '').trim();
-  if(!nama) return {ok:false,message:'Nama program wajib diisi.'};
-
-  const mediaUrl = String(b.mediaUrl || '').trim();
-  const mediaType = inferMediaType_(mediaUrl, b.mediaType);
-
-  appendObject_('PROGRAM',{
-    ProgramID:id_('PRG'),
-    Nama:nama,
-    Deskripsi:String(b.deskripsi || '').trim(),
-    Status:String(b.status || 'BUKA').trim().toUpperCase(),
-    Tanggal:now_(),
-    MediaURL:mediaUrl,
-    MediaType:mediaType
-  });
-
-  return {ok:true,message:'Program berhasil dibuat.'};
-}
-
-function setProgramStatus_(b){
-  updateById_('PROGRAM','ProgramID',b.programId,'Status',String(b.status||'').toUpperCase());
-  return {ok:true,message:'Status program diperbarui.'};
-}
-
-function setProgramMedia_(b){
-  const programId = String(b.programId || '').trim();
-  const mediaUrl = String(b.mediaUrl || '').trim();
-  const mediaType = inferMediaType_(mediaUrl, b.mediaType);
-
-  if(!programId) return {ok:false,message:'Program tidak ditemukan.'};
-
-  updateById_('PROGRAM','ProgramID',programId,'MediaURL',mediaUrl);
-  updateById_('PROGRAM','ProgramID',programId,'MediaType',mediaType);
-
-  return {
-    ok:true,
-    message: mediaUrl ? 'Media program berhasil disimpan.' : 'Media program dihapus.'
-  };
-}
-
-function deleteProgram_(b){
-  const programId = String(b.programId || '').trim();
-  if(!programId) return {ok:false,message:'Program tidak ditemukan.'};
-
-  // Untuk menjaga data peserta dan materi, program yang sudah pernah dipakai
-  // tidak dihapus secara fisik. Admin harus menghapus/menangani data terkait dahulu.
-  const pesertaCount = rows_('PESERTA').filter(r=>String(r.ProgramID || '') === programId).length;
-  const materiCount = rows_('MATERI').filter(r=>String(r.ProgramID || '') === programId).length;
-
-  if(pesertaCount > 0 || materiCount > 0){
-    return {
-      ok:false,
-      message:`Program belum dapat dihapus karena masih memiliki ${pesertaCount} peserta dan ${materiCount} materi. Tutup program bila hanya ingin menyembunyikannya.`
-    };
-  }
-
-  const sh = sh_('PROGRAM');
-  const map = headerMap_(sh);
-
-  for(let r=2;r<=sh.getLastRow();r++){
-    if(String(sh.getRange(r,map.ProgramID).getValue()) === programId){
-      sh.deleteRow(r);
-      return {ok:true,message:'Program berhasil dihapus.'};
-    }
-  }
-
-  return {ok:false,message:'Program tidak ditemukan.'};
-}
-
+function existingTokenForEmail_(email){const e=String(email||'').trim().toLowerCase();const r=rows_('PESERTA').find(x=>String(x.Email||'').trim().toLowerCase()===e&&String(x.AccessToken||'').trim());return r?String(r.AccessToken):''}
 function register_(b){
-  const programId = String(b.programId || '').trim();
-  const nama = String(b.nama || '').trim();
-  const email = String(b.email || '').trim();
-  const wa = String(b.wa || '').trim();
-
-  if(!programId || !nama || !email || !wa){
-    return {ok:false,message:'Data pendaftaran belum lengkap.'};
-  }
-
-  const program = getPrograms_().find(p=>p.programId === programId && p.status === 'BUKA');
-  if(!program) return {ok:false,message:'Program tidak tersedia atau sudah ditutup.'};
-
-  const dup = rows_('PESERTA').find(r=>
-    String(r.ProgramID) === programId &&
-    String(r.Email || '').toLowerCase() === email.toLowerCase()
-  );
-
-  if(dup) return {ok:false,message:'Email ini sudah terdaftar pada program tersebut.'};
-
-  appendObject_('PESERTA',{
-    PesertaID:id_('PST'),
-    ProgramID:programId,
-    Nama:nama,
-    Email:email,
-    WA:wa,
-    Instansi:String(b.institution || '').trim(),
-    Catatan:String(b.note || '').trim(),
-    Status:'MENUNGGU',
-    AccessToken:'',
-    TanggalDaftar:now_(),
-    TanggalAktif:''
-  });
-
-  return {ok:true,message:'Pendaftaran berhasil. Informasi akses akan dikirim setelah pendaftaran dikonfirmasi.'};
+ const programId=String(b.programId||''),nama=String(b.nama||'').trim(),email=String(b.email||'').trim(),wa=String(b.wa||'').trim();
+ if(!programId||!nama||!email||!wa)return{ok:false,message:'Data pendaftaran belum lengkap.'};
+ const program=getPublicPrograms_().find(p=>p.programId===programId);if(!program)return{ok:false,message:'Program tidak tersedia atau periode sudah berakhir.'};
+ const dup=rows_('PESERTA').find(r=>String(r.ProgramID)===programId&&String(r.Email||'').toLowerCase()===email.toLowerCase()&&!['DITOLAK','DIBATALKAN'].includes(String(r.Status||'').toUpperCase()));if(dup)return{ok:false,message:'Email ini sudah terdaftar pada program tersebut.'};
+ const token=existingTokenForEmail_(email)||token_(),free=program.pricingType==='GRATIS',pid=id_('PST');
+ appendObject_('PESERTA',{PesertaID:pid,ProgramID:programId,Nama:nama,Email:email,WA:wa,Instansi:String(b.institution||''),Catatan:String(b.note||''),Status:free?'AKTIF':'MENUNGGU_BAYAR',PaymentStatus:free?'TIDAK_PERLU':'BELUM_BAYAR',AccessToken:token,TanggalDaftar:now_(),TanggalAktif:free?now_():''});
+ const peserta=getParticipants_().find(p=>p.pesertaId===pid);
+ if(free){try{sendAccessEmail_(peserta)}catch(err){}return{ok:true,pricingType:'GRATIS',pesertaId:pid,programNama:program.nama,accessToken:token,accessUrl:accessUrl_(token),message:'Pendaftaran aktif dan email akses dikirim.'}}
+ try{sendPaymentInstructionEmail_(peserta,program)}catch(err){}
+ return{ok:true,pricingType:'BERBAYAR',pesertaId:pid,programNama:program.nama,amountDue:program.price,payment:paymentConfig_(),message:'Pendaftaran diterima. Silakan lakukan pembayaran dan upload bukti.'}
 }
+function paymentConfig_(){return{bankName:CONFIG.PAYMENT_BANK_NAME,accountNumber:CONFIG.PAYMENT_ACCOUNT_NUMBER,accountHolder:CONFIG.PAYMENT_ACCOUNT_HOLDER,qrisUrl:CONFIG.PAYMENT_QRIS_URL}}
+function sendPaymentInstructionEmail_(p,program){const q=paymentConfig_();MailApp.sendEmail({to:p.email,name:'BEING Biro Psikologi',replyTo:CONFIG.ADMIN_EMAIL,subject:'Instruksi Pembayaran - '+program.nama,htmlBody:`<p>Halo <b>${p.nama}</b>,</p><p>Pendaftaran program <b>${program.nama}</b> telah diterima.</p><p>Nominal: <b>Rp ${Number(program.price).toLocaleString('id-ID')}</b><br>Bank: <b>${q.bankName}</b><br>No. Rekening: <b>${q.accountNumber}</b><br>Atas nama: <b>${q.accountHolder}</b></p>${q.qrisUrl?`<p><a href="${q.qrisUrl}">Buka QRIS</a></p>`:''}<p>Setelah pembayaran, upload bukti pada halaman pendaftaran. Akses MyBeing dikirim setelah pembayaran diverifikasi Studio.</p><p>Salam,<br>BEING Biro Psikologi<br>${CONFIG.ADMIN_EMAIL}</p>`})}
+function saveProof_(data,name,mime,pid){const m=String(data||'').match(/^data:([^;]+);base64,(.+)$/);if(!m)throw new Error('Format file tidak valid.');const bytes=Utilities.base64Decode(m[2]);if(bytes.length>2*1024*1024)throw new Error('Ukuran file maksimal 2 MB.');const blob=Utilities.newBlob(bytes,mime||m[1],pid+' - '+String(name||'bukti'));const folder=CONFIG.PAYMENT_FOLDER_ID?DriveApp.getFolderById(CONFIG.PAYMENT_FOLDER_ID):DriveApp.getRootFolder();const f=folder.createFile(blob);try{f.setSharing(DriveApp.Access.ANYONE_WITH_LINK,DriveApp.Permission.VIEW)}catch(_){}return f.getUrl()}
+function submitPayment_(b){const pid=String(b.pesertaId||''),p=getParticipants_().find(x=>x.pesertaId===pid);if(!p)return{ok:false,message:'Pendaftaran tidak ditemukan.'};if(p.pricingType!=='BERBAYAR')return{ok:false,message:'Program ini tidak memerlukan pembayaran.'};if(p.status==='AKTIF')return{ok:false,message:'Program sudah aktif.'};const url=saveProof_(b.fileData,b.fileName,b.mimeType,pid);appendObject_('PEMBAYARAN',{PaymentID:id_('PAY'),PesertaID:pid,ProgramID:p.programId,Nama:p.nama,Email:p.email,Amount:p.price,ProofURL:url,Status:'MENUNGGU_VERIFIKASI',TanggalKirim:now_(),TanggalVerifikasi:'',Catatan:''});updateById_('PESERTA','PesertaID',pid,'Status','MENUNGGU_VERIFIKASI');updateById_('PESERTA','PesertaID',pid,'PaymentStatus','MENUNGGU_VERIFIKASI');return{ok:true,message:'Bukti pembayaran berhasil dikirim.'}}
 
-function getParticipants_(){
-  const programs = Object.fromEntries(getPrograms_().map(p=>[p.programId,p.nama]));
+function getParticipants_(){const pm=Object.fromEntries(getPrograms_().map(p=>[p.programId,p]));return rows_('PESERTA').map(r=>{const p=pm[String(r.ProgramID)]||{};return{pesertaId:String(r.PesertaID||''),programId:String(r.ProgramID||''),programNama:p.nama||'-',kategori:p.kategori||'-',pricingType:p.pricingType||'GRATIS',price:Number(p.price||0),nama:String(r.Nama||''),email:String(r.Email||''),wa:String(r.WA||''),institution:String(r.Instansi||''),note:String(r.Catatan||''),status:String(r.Status||'').toUpperCase(),paymentStatus:String(r.PaymentStatus||''),accessToken:String(r.AccessToken||''),tanggalDaftar:dateOnly_(r.TanggalDaftar),tanggalAktif:dateOnly_(r.TanggalAktif)}}).reverse()}
+function deleteParticipant_(b){const id=String(b.pesertaId||'');rows_('PEMBAYARAN').filter(r=>String(r.PesertaID)===id).forEach(r=>deleteById_('PEMBAYARAN','PaymentID',r.PaymentID));return deleteById_('PESERTA','PesertaID',id)?{ok:true,message:'Data peserta dan pembayaran terkait dihapus.'}:{ok:false,message:'Peserta tidak ditemukan.'}}
 
-  return rows_('PESERTA').map(r=>({
-    pesertaId:String(r.PesertaID || ''),
-    programId:String(r.ProgramID || ''),
-    programNama:programs[String(r.ProgramID || '')] || '-',
-    nama:String(r.Nama || ''),
-    email:String(r.Email || ''),
-    wa:String(r.WA || ''),
-    institution:String(r.Instansi || ''),
-    note:String(r.Catatan || ''),
-    status:String(r.Status || ''),
-    accessToken:String(r.AccessToken || ''),
-    tanggalDaftar:r.TanggalDaftar || '',
-    tanggalAktif:r.TanggalAktif || ''
-  })).reverse();
-}
+function getPayments_(){const pm=Object.fromEntries(getPrograms_().map(p=>[p.programId,p]));return rows_('PEMBAYARAN').map(r=>{const p=pm[String(r.ProgramID)]||{};return{paymentId:String(r.PaymentID||''),pesertaId:String(r.PesertaID||''),programId:String(r.ProgramID||''),programNama:p.nama||'-',kategori:p.kategori||'-',nama:String(r.Nama||''),email:String(r.Email||''),amount:Number(r.Amount||0),proofUrl:String(r.ProofURL||''),status:String(r.Status||'').toUpperCase(),tanggalKirim:dateOnly_(r.TanggalKirim),tanggalVerifikasi:dateOnly_(r.TanggalVerifikasi),catatan:String(r.Catatan||'')}}).reverse()}
+function approvePayment_(b){const id=String(b.paymentId||''),pay=getPayments_().find(x=>x.paymentId===id);if(!pay)return{ok:false,message:'Pembayaran tidak ditemukan.'};if(pay.status!=='MENUNGGU_VERIFIKASI')return{ok:false,message:'Pembayaran ini sudah diproses.'};updateById_('PEMBAYARAN','PaymentID',id,'Status','LUNAS');updateById_('PEMBAYARAN','PaymentID',id,'TanggalVerifikasi',now_());updateById_('PESERTA','PesertaID',pay.pesertaId,'Status','AKTIF');updateById_('PESERTA','PesertaID',pay.pesertaId,'PaymentStatus','LUNAS');updateById_('PESERTA','PesertaID',pay.pesertaId,'TanggalAktif',now_());const p=getParticipants_().find(x=>x.pesertaId===pay.pesertaId);try{sendAccessEmail_(p)}catch(err){return{ok:true,message:'Pembayaran LUNAS dan peserta aktif, tetapi email gagal: '+String(err.message||err)}}return{ok:true,message:'Pembayaran LUNAS, peserta aktif, dan email akses terkirim.'}}
+function rejectPayment_(b){const id=String(b.paymentId||''),pay=getPayments_().find(x=>x.paymentId===id);if(!pay)return{ok:false,message:'Pembayaran tidak ditemukan.'};updateById_('PEMBAYARAN','PaymentID',id,'Status','DITOLAK');updateById_('PEMBAYARAN','PaymentID',id,'TanggalVerifikasi',now_());updateById_('PEMBAYARAN','PaymentID',id,'Catatan',String(b.note||''));updateById_('PESERTA','PesertaID',pay.pesertaId,'Status','BUKTI_DITOLAK');updateById_('PESERTA','PesertaID',pay.pesertaId,'PaymentStatus','DITOLAK');try{MailApp.sendEmail({to:pay.email,name:'BEING Biro Psikologi',replyTo:CONFIG.ADMIN_EMAIL,subject:'Verifikasi Pembayaran BEING',htmlBody:`<p>Halo <b>${pay.nama}</b>,</p><p>Bukti pembayaran belum dapat kami verifikasi.</p><p>Catatan: <b>${String(b.note||'Silakan upload bukti pembayaran yang sesuai.')}</b></p><p>Salam,<br>BEING Biro Psikologi</p>`})}catch(_){}return{ok:true,message:'Pembayaran ditolak dan peserta dapat mengirim bukti ulang.'}}
+function deletePayment_(b){return deleteById_('PEMBAYARAN','PaymentID',String(b.paymentId||''))?{ok:true,message:'Riwayat pembayaran dihapus.'}:{ok:false,message:'Pembayaran tidak ditemukan.'}}
 
-function activateParticipant_(b){
-  const sh = sh_('PESERTA');
-  const map = headerMap_(sh);
-  const data = sh.getDataRange().getValues();
+function accessUrl_(t){return String(CONFIG.WEB_BASE_URL||'').replace(/\/?$/,'/')+'akses.html?access='+encodeURIComponent(t)}
+function sendAccessEmail_(p){if(!p||p.status!=='AKTIF'||!p.accessToken)throw new Error('Peserta belum aktif.');MailApp.sendEmail({to:p.email,name:'BEING Biro Psikologi',replyTo:CONFIG.ADMIN_EMAIL,subject:'Akses MyBeing - '+p.programNama,htmlBody:`<p>Halo <b>${p.nama}</b>,</p><p>Program <b>${p.programNama}</b> telah aktif.</p><p>Kode akses: <b style="font-size:20px">${p.accessToken}</b></p><p><a href="${accessUrl_(p.accessToken)}">Buka MyBeing</a></p><p>Kode yang sama dapat digunakan kembali untuk melihat pembaruan program Anda.</p><p>Salam,<br>BEING Biro Psikologi<br>${CONFIG.ADMIN_EMAIL}</p>`})}
+function sendAccessEmailAction_(b){const p=getParticipants_().find(x=>x.pesertaId===String(b.pesertaId||''));if(!p)return{ok:false,message:'Peserta tidak ditemukan.'};sendAccessEmail_(p);return{ok:true,message:'Email akses berhasil dikirim.'}}
 
-  for(let r=2;r<=data.length;r++){
-    if(String(sh.getRange(r,map.PesertaID).getValue()) === String(b.pesertaId)){
-      let token = sh.getRange(r,map.AccessToken).getValue();
-      if(!token) token = token_();
+function createMaterial_(b){if(!b.programId||!b.judul||!b.link)return{ok:false,message:'Program, judul, dan link wajib diisi.'};appendObject_('MATERI',{MateriID:id_('MAT'),ProgramID:String(b.programId),SesiID:String(b.sesiId||''),Judul:String(b.judul||''),Deskripsi:String(b.deskripsi||''),Link:String(b.link||''),Status:String(b.status||'PUBLIKASI').toUpperCase(),Tanggal:now_()});return{ok:true,message:'Materi disimpan.'}}
+function getMaterials_(){const pm=Object.fromEntries(getPrograms_().map(p=>[p.programId,p])),sm=Object.fromEntries(getSessions_().map(s=>[s.sesiId,s.judul]));return rows_('MATERI').map(r=>{const p=pm[String(r.ProgramID)]||{};return{materiId:String(r.MateriID||''),programId:String(r.ProgramID||''),programNama:p.nama||'-',kategori:p.kategori||'-',sesiId:String(r.SesiID||''),sesiNama:sm[String(r.SesiID)]||'',judul:String(r.Judul||''),deskripsi:String(r.Deskripsi||''),link:String(r.Link||''),status:String(r.Status||'').toUpperCase(),tanggal:dateOnly_(r.Tanggal)}}).reverse()}
+function setMaterialStatus_(b){updateById_('MATERI','MateriID',b.materiId,'Status',String(b.status||'').toUpperCase());return{ok:true,message:'Status materi diperbarui.'}}
+function deleteMaterial_(b){return deleteById_('MATERI','MateriID',String(b.materiId||''))?{ok:true,message:'Materi dihapus.'}:{ok:false,message:'Materi tidak ditemukan.'}}
 
-      sh.getRange(r,map.Status).setValue('AKTIF');
-      sh.getRange(r,map.AccessToken).setValue(token);
-      sh.getRange(r,map.TanggalAktif).setValue(now_());
+function createSession_(b){if(!b.programId||!b.judul||!b.tanggalSesi)return{ok:false,message:'Program, judul, dan tanggal sesi wajib diisi.'};appendObject_('SESI',{SesiID:id_('SES'),ProgramID:String(b.programId),Judul:String(b.judul||''),Deskripsi:String(b.deskripsi||''),TanggalSesi:String(b.tanggalSesi||''),JamSesi:String(b.jamSesi||''),ZoomURL:String(b.zoomUrl||''),ZoomAktif:String(b.zoomAktif||'TIDAK').toUpperCase(),Status:String(b.status||'PUBLIKASI').toUpperCase(),Tanggal:now_()});return{ok:true,message:'Sesi disimpan.'}}
+function getSessions_(){const pm=Object.fromEntries(getPrograms_().map(p=>[p.programId,p]));return rows_('SESI').map(r=>{const p=pm[String(r.ProgramID)]||{};return{sesiId:String(r.SesiID||''),programId:String(r.ProgramID||''),programNama:p.nama||'-',kategori:p.kategori||'-',judul:String(r.Judul||''),deskripsi:String(r.Deskripsi||''),tanggalSesi:dateOnly_(r.TanggalSesi),jamSesi:String(r.JamSesi||''),zoomUrl:String(r.ZoomURL||''),zoomAktif:String(r.ZoomAktif||'').toUpperCase()==='YA',status:String(r.Status||'').toUpperCase(),tanggal:dateOnly_(r.Tanggal)}}).sort((a,b)=>(a.tanggalSesi+' '+a.jamSesi).localeCompare(b.tanggalSesi+' '+b.jamSesi))}
+function setSessionStatus_(b){updateById_('SESI','SesiID',b.sesiId,'Status',String(b.status||'').toUpperCase());return{ok:true,message:'Status sesi diperbarui.'}}
+function toggleSessionZoom_(b){updateById_('SESI','SesiID',b.sesiId,'ZoomAktif',String(b.zoomAktif||'TIDAK').toUpperCase());return{ok:true,message:'Akses Zoom diperbarui.'}}
+function deleteSession_(b){const id=String(b.sesiId||''),ms=sh_('MATERI'),map=headerMap_(ms);if(map.SesiID)for(let r=2;r<=ms.getLastRow();r++)if(String(ms.getRange(r,map.SesiID).getValue())===id)ms.getRange(r,map.SesiID).setValue('');return deleteById_('SESI','SesiID',id)?{ok:true,message:'Sesi dihapus. Materi terkait tetap menjadi materi umum.'}:{ok:false,message:'Sesi tidak ditemukan.'}}
 
-      return {ok:true,message:'Peserta aktif. Link akses siap digunakan.',accessToken:String(token)};
-    }
-  }
+function getPortal_(token,programId){const t=String(token||'').trim().toUpperCase();if(!t)return{ok:false,message:'Masukkan kode akses.'};const active=getParticipants_().filter(p=>p.status==='AKTIF'&&String(p.accessToken||'').toUpperCase()===t);if(!active.length)return{ok:false,message:'Kode akses tidak valid atau belum ada program aktif.'};const ids=[...new Set(active.map(p=>p.programId))],plist=getPrograms_().filter(p=>ids.includes(p.programId));const selected=plist.find(p=>p.programId===String(programId||''))||plist[0];const owner=active[0];return{ok:true,data:{peserta:{nama:owner.nama,email:owner.email,accessToken:owner.accessToken},programs:plist,program:selected,sesi:getSessions_().filter(s=>s.programId===selected.programId&&s.status==='PUBLIKASI'),materi:getMaterials_().filter(m=>m.programId===selected.programId&&m.status==='PUBLIKASI'),refreshedAt:new Date().toISOString()}}}
 
-  return {ok:false,message:'Peserta tidak ditemukan.'};
-}
-
-function createMaterial_(b){
-  if(!b.programId || !b.judul || !b.link){
-    return {ok:false,message:'Program, judul, dan link materi wajib diisi.'};
-  }
-
-  appendObject_('MATERI',{
-    MateriID:id_('MAT'),
-    ProgramID:String(b.programId),
-    Judul:String(b.judul),
-    Deskripsi:String(b.deskripsi || ''),
-    Link:String(b.link),
-    Status:String(b.status || 'PUBLIKASI').toUpperCase(),
-    Tanggal:now_()
-  });
-
-  return {ok:true,message:'Materi berhasil disimpan.'};
-}
-
-function setMaterialStatus_(b){
-  updateById_('MATERI','MateriID',b.materiId,'Status',String(b.status||'').toUpperCase());
-  return {ok:true,message:'Status materi diperbarui.'};
-}
-
-function getMaterials_(){
-  const programs = Object.fromEntries(getPrograms_().map(p=>[p.programId,p.nama]));
-
-  return rows_('MATERI').map(r=>({
-    materiId:String(r.MateriID || ''),
-    programId:String(r.ProgramID || ''),
-    programNama:programs[String(r.ProgramID || '')] || '-',
-    judul:String(r.Judul || ''),
-    deskripsi:String(r.Deskripsi || ''),
-    link:String(r.Link || ''),
-    status:String(r.Status || ''),
-    tanggal:r.Tanggal || ''
-  })).reverse();
-}
-
-function getPortal_(token){
-  token = String(token || '').trim();
-  if(!token) return {ok:false,message:'Kode akses belum diisi.'};
-
-  const peserta = rows_('PESERTA').find(r=>
-    String(r.AccessToken || '') === token &&
-    String(r.Status || '') === 'AKTIF'
-  );
-
-  if(!peserta) return {ok:false,message:'Kode akses tidak valid atau peserta belum aktif.'};
-
-  const program = getPrograms_().find(p=>p.programId === String(peserta.ProgramID || ''));
-  if(!program) return {ok:false,message:'Program tidak ditemukan.'};
-
-  const materi = getMaterials_().filter(m=>
-    m.programId === String(peserta.ProgramID || '') &&
-    m.status === 'PUBLIKASI'
-  );
-
-  return {
-    ok:true,
-    data:{
-      peserta:{
-        nama:String(peserta.Nama || ''),
-        email:String(peserta.Email || '')
-      },
-      program,
-      materi
-    }
-  };
-}
-
-function updateById_(sheetName,idHeader,idValue,targetHeader,newValue){
-  const sh = sh_(sheetName);
-  const map = headerMap_(sh);
-
-  if(!map[idHeader] || !map[targetHeader]){
-    throw new Error('Header sheet tidak sesuai.');
-  }
-
-  for(let r=2;r<=sh.getLastRow();r++){
-    if(String(sh.getRange(r,map[idHeader]).getValue()) === String(idValue)){
-      sh.getRange(r,map[targetHeader]).setValue(newValue);
-      return;
-    }
-  }
-
-  throw new Error('Data tidak ditemukan.');
-}
+function updateById_(sheetName,idHeader,idValue,targetHeader,newValue){const s=sh_(sheetName),m=headerMap_(s);if(!m[idHeader]||!m[targetHeader])throw new Error('Header sheet tidak lengkap.');for(let r=2;r<=s.getLastRow();r++)if(String(s.getRange(r,m[idHeader]).getValue())===String(idValue)){s.getRange(r,m[targetHeader]).setValue(newValue);return true}return false}
+function deleteById_(sheetName,idHeader,idValue){const s=sh_(sheetName),m=headerMap_(s);if(!m[idHeader])throw new Error('Header '+idHeader+' tidak ditemukan.');for(let r=2;r<=s.getLastRow();r++)if(String(s.getRange(r,m[idHeader]).getValue())===String(idValue)){s.deleteRow(r);return true}return false}
