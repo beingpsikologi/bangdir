@@ -18,12 +18,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px;bord
 .notice{padding:10px 12px;background:#eef4f1;border-radius:10px;color:#52645b}
 @media(max-width:900px){.grid,.grid2,.filterbar{grid-template-columns:1fr}.top{display:block}.top .actions{margin-top:10px}}
 </style></head><body><div class="wrap">
-<div class="top"><div><h1>Studio BEING</h1><div class="mut">Pengembangan Diri • v2.2</div></div><div class="actions">
-<a class="btn secondary" href="index.html">Halaman Publik</a>
-<a class="btn secondary" href="akses.html">MyBeing</a>
-<button class="secondary" type="button" onclick="manualRefresh()">Refresh</button>
-<button class="danger" type="button" onclick="logoutStudio()">Keluar</button>
-</div></div>
+<div class="top"><div><h1>Studio BEING</h1><div class="mut">Pengembangan Diri • v2.2</div></div><div class="actions"><a class="btn secondary" href="index.html">Halaman Publik</a><a class="btn secondary" href="akses.html">MyBeing</a></div></div>
 
 <div id="loginCard" class="card">
 <h2>Akses Studio</h2><div class="grid2"><input id="adminKeyInput" type="password" placeholder="Kunci Studio"><button onclick="loginStudio()">Masuk</button></div><div id="loginMsg" class="mut"></div>
@@ -158,25 +153,5 @@ const setSessionStatus=(id,status)=>simple('setSessionStatus',{sesiId:id,status}
 const toggleZoom=(id,on)=>simple('toggleSessionZoom',{sesiId:id,zoomAktif:on?'YA':'TIDAK'});
 const deleteSession=id=>simple('deleteSession',{sesiId:id},'Hapus sesi ini?');
 function focusMaterials(programId,kategori){$('filterKategori').value=kategori;updateProgramFilter();$('filterProgram').value=programId;renderAll();$('materiCard').scrollIntoView({behavior:'smooth'})}
-
-async function manualRefresh(){
-  const btns=[...document.querySelectorAll('button')];
-  const refreshBtn=btns.find(b=>b.textContent.trim()==='Refresh');
-  if(refreshBtn){refreshBtn.disabled=true;refreshBtn.textContent='Memuat...';}
-  try{
-    await refresh(false);
-  }finally{
-    if(refreshBtn){refreshBtn.disabled=false;refreshBtn.textContent='Refresh';}
-  }
-}
-function logoutStudio(){
-  sessionStorage.removeItem('being_admin_key');
-  $('adminKeyInput').value='';
-  $('loginMsg').textContent='Anda telah keluar dari Studio.';
-  $('studio').classList.add('hidden');
-  $('loginCard').classList.remove('hidden');
-  window.scrollTo({top:0,behavior:'smooth'});
-}
-
 if(key())refresh();
 </script></body></html>
