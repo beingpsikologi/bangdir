@@ -1,5 +1,5 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MyBeing | Pengembangan Diri</title><script src="assets/js/config.js?v=2.4"></script>
+<title>MyBeing | Pengembangan Diri</title><script src="assets/js/config.js?v=2.2"></script>
 <style>
 :root{--g:#174b3a;--bg:#f5f8f6;--card:#fff;--mut:#6b7771;--line:#dfe8e3}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:#1f2a25}.wrap{max-width:980px;margin:auto;padding:24px}
@@ -13,18 +13,12 @@ input,select{width:100%;padding:12px;border:1px solid #cad8d1;border-radius:12px
 <div class="card"><h1>MyBeing • Akses Peserta</h1><p class="mut">Gunakan kode akses yang dikirim melalui email. Satu kode dapat digunakan kembali dan menampilkan seluruh program aktif yang terhubung dengan akun yang sama.</p>
 <form id="login"><div class="grid2"><input id="token" placeholder="Contoh: BEING-A73K2" required><button>Buka MyBeing</button></div></form><div id="err" class="mut" style="margin-top:12px"></div></div>
 <div id="portal" class="hidden">
-<div class="card"><div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap"><h2 id="welcome" style="margin:0"></h2><button type="button" id="refreshPortal">Refresh</button></div><div class="grid2" style="margin-top:14px"><div><label><b>Program Saya</b></label><select id="programSelect"></select></div><div><p id="programInfo"></p></div></div><div id="lastRefresh" class="mut" style="margin-top:10px;font-size:12px"></div></div>
+<div class="card"><h2 id="welcome"></h2><div class="grid2"><div><label><b>Program Saya</b></label><select id="programSelect"></select></div><div><p id="programInfo"></p></div></div></div>
 <div class="card"><h2>Jadwal & Sesi Kegiatan</h2><div id="sessions"></div></div>
 <div class="card"><h2>Materi Program</h2><div id="materials"></div></div>
 </div></div>
 <script>
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-function formatDateID(v){
- const s=String(v||'').trim(); if(!s)return '';
- const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/); if(m)return `${m[3]}-${m[2]}-${m[1]}`;
- const d=new Date(s); if(isNaN(d.getTime()))return s;
- return new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d).replace(/\//g,'-');
-}
 function normalizeAccessInput(value){const raw=String(value||'').trim();if(!raw)return'';try{const u=new URL(raw),t=u.searchParams.get('access');if(t)return t.trim()}catch(_){}const m=raw.match(/[?&]access=([^&#]+)/i);if(m&&m[1]){try{return decodeURIComponent(m[1]).trim()}catch(_){return m[1].trim()}}return raw}
 async function api(params){const u=new URL(API_URL);Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));u.searchParams.set('_',Date.now());return fetch(u,{cache:'no-store'}).then(r=>r.json())}
 async function openPortal(t,programId=''){
@@ -35,17 +29,15 @@ async function openPortal(t,programId=''){
   $('err').textContent='';$('token').value=t;$('welcome').textContent='Halo, '+x.data.peserta.nama;
   const plist=x.data.programs||[],current=x.data.program;
   $('programSelect').innerHTML=plist.map(p=>`<option value="${esc(p.programId)}" ${p.programId===current.programId?'selected':''}>${esc(p.kategori)} • ${esc(p.nama)}</option>`).join('');
-  $('programInfo').innerHTML=`<b>${esc(current.nama)}</b><br><span class="mut">${esc(current.kategori)} • ${current.pricingType==='BERBAYAR'?'Berbayar':'Gratis'}</span><br><span class="mut">Tanggal Kegiatan: ${esc(formatDateID(current.tanggalMulai||''))}${current.tanggalAkhir&&current.tanggalAkhir!==current.tanggalMulai?' s.d. '+esc(formatDateID(current.tanggalAkhir)):''}</span>`;
+  $('programInfo').innerHTML=`<b>${esc(current.nama)}</b><br><span class="mut">${esc(current.kategori)} • ${current.pricingType==='BERBAYAR'?'Berbayar':'Gratis'}</span><br><span class="mut">${esc(current.tanggalMulai||'')} ${current.tanggalAkhir?'s.d. '+esc(current.tanggalAkhir):''}</span>`;
   const ss=x.data.sesi||[];
-  $('sessions').innerHTML=ss.length?ss.map(s=>`<div class="session"><h3>${esc(s.judul)}</h3><div class="meta"><span class="badge">${esc(formatDateID(s.tanggalSesi))} ${esc(s.jamSesi||'')}</span>${s.zoomAktif&&s.zoomUrl?'<span class="badge">Zoom Aktif</span>':''}</div><p class="mut">${esc(s.deskripsi||'')}</p>${s.zoomAktif&&s.zoomUrl?`<a class="btn" target="_blank" rel="noopener" href="${esc(s.zoomUrl)}">Buka Zoom</a>`:'<span class="mut">Akses Zoom belum diaktifkan Studio.</span>'}</div>`).join(''):'<p class="mut">Belum ada sesi yang dipublikasikan.</p>';
+  $('sessions').innerHTML=ss.length?ss.map(s=>`<div class="session"><h3>${esc(s.judul)}</h3><div class="meta"><span class="badge">${esc(s.tanggalSesi)} ${esc(s.jamSesi||'')}</span>${s.zoomAktif&&s.zoomUrl?'<span class="badge">Zoom Aktif</span>':''}</div><p class="mut">${esc(s.deskripsi||'')}</p>${s.zoomAktif&&s.zoomUrl?`<a class="btn" target="_blank" rel="noopener" href="${esc(s.zoomUrl)}">Buka Zoom</a>`:'<span class="mut">Akses Zoom belum diaktifkan Studio.</span>'}</div>`).join(''):'<p class="mut">Belum ada sesi yang dipublikasikan.</p>';
   const ms=x.data.materi||[];
   $('materials').innerHTML=ms.length?ms.map(m=>`<div class="material"><h3>${esc(m.judul)}</h3>${m.sesiNama?`<span class="badge">${esc(m.sesiNama)}</span>`:''}<p class="mut">${esc(m.deskripsi||'')}</p><a class="btn" target="_blank" rel="noopener" href="${esc(m.link)}">Buka / Download</a></div>`).join(''):'<p class="mut">Belum ada materi yang dipublikasikan.</p>';
-  $('portal').classList.remove('hidden');$('lastRefresh').textContent='Diperbarui: '+new Date().toLocaleString('id-ID')
+  $('portal').classList.remove('hidden')
  }catch(e){$('err').textContent='API belum terhubung atau koneksi bermasalah.'}
 }
 $('login').addEventListener('submit',e=>{e.preventDefault();openPortal($('token').value)});
 $('programSelect').addEventListener('change',()=>openPortal($('token').value,$('programSelect').value));
-$('refreshPortal').addEventListener('click',()=>openPortal($('token').value,$('programSelect').value));
-window.addEventListener('focus',()=>{if($('token').value&& !$('portal').classList.contains('hidden'))openPortal($('token').value,$('programSelect').value)});
 const q=new URLSearchParams(location.search).get('access');if(q){$('token').value=q;openPortal(q)}
 </script></body></html>

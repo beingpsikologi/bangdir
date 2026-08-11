@@ -2,15 +2,6 @@
 const $=id=>document.getElementById(id);
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function rupiah(n){return 'Rp '+Number(n||0).toLocaleString('id-ID')}
-function formatDateID(v){
-  const s=String(v||'').trim();
-  if(!s)return '';
-  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(m)return `${m[3]}-${m[2]}-${m[1]}`;
-  const d=new Date(s);
-  if(isNaN(d.getTime()))return s;
-  return new Intl.DateTimeFormat('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d).replace(/\//g,'-');
-}
 
 async function apiGet(params={}){
   const u=new URL(API_URL);
@@ -66,7 +57,7 @@ function programCard(p){
     <div class="num">${esc(p.kategori)}</div>
     <h3>${esc(p.nama)}</h3>
     ${programMedia(p)}
-    <div class="program-meta"><span class="program-badge">${paid?'BERBAYAR':'GRATIS'}</span>${p.tanggalMulai?`<span class="program-badge">Tanggal Kegiatan: ${esc(formatDateID(p.tanggalMulai))}${p.tanggalAkhir&&p.tanggalAkhir!==p.tanggalMulai?' – '+esc(formatDateID(p.tanggalAkhir)):''}</span>`:''}</div>
+    <div class="program-meta"><span class="program-badge">${paid?'BERBAYAR':'GRATIS'}</span>${p.tanggalMulai?`<span class="program-badge">${esc(p.tanggalMulai)}${p.tanggalAkhir?' – '+esc(p.tanggalAkhir):''}</span>`:''}</div>
     ${paid?`<div class="program-price">${rupiah(p.price)}</div>`:'<div class="program-price">Tanpa biaya</div>'}
     <p>${esc(p.deskripsi||'Program Pengembangan Diri BEING.')}</p>
     <a class="btn soft" href="#daftar" onclick="selectProgram('${esc(p.programId)}')">Daftar</a>
