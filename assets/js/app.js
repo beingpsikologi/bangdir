@@ -57,7 +57,7 @@ function programCard(p){
     <div class="num">${esc(p.kategori)}</div>
     <h3>${esc(p.nama)}</h3>
     ${programMedia(p)}
-    <div class="program-meta"><span class="program-badge">${paid?'BERBAYAR':'GRATIS'}</span>${p.tanggalMulai?`<span class="program-badge">${esc(p.tanggalMulai)}${p.tanggalAkhir?' – '+esc(p.tanggalAkhir):''}</span>`:''}</div>
+    <div class="program-meta"><span class="program-badge">${paid?'BERBAYAR':'GRATIS'}</span>${formatDateID(p.tanggalMulai)?`<span class="program-badge">${esc(formatDateID(p.tanggalMulai))}${p.tanggalAkhir?' – '+esc(p.tanggalAkhir):''}</span>`:''}</div>
     ${paid?`<div class="program-price">${rupiah(p.price)}</div>`:'<div class="program-price">Tanpa biaya</div>'}
     <p>${esc(p.deskripsi||'Program Pengembangan Diri BEING.')}</p>
     <a class="btn soft" href="#daftar" onclick="selectProgram('${esc(p.programId)}')">Daftar</a>
