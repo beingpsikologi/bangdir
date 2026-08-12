@@ -9,13 +9,21 @@ function formatDateID(v){
   return m?`${m[3]}-${m[2]}-${m[1]}`:s;
 }
 
-async function apiGet(params={}){
-  const u=new URL(API_URL);
-  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v ?? ''));
-  u.searchParams.set('_',Date.now());
-  const r=await fetch(u.toString(),{cache:'no-store',redirect:'follow'});
-  const txt=await r.text();
-  try{return JSON.parse(txt)}catch{throw new Error('Respons API tidak dapat dibaca.')}
+function apiGet(params={}){
+  return new Promise((resolve,reject)=>{
+    const cb='being_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const u=new URL(API_URL);
+    Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v ?? ''));
+    u.searchParams.set('callback',cb);
+    u.searchParams.set('_',Date.now());
+    const s=document.createElement('script');
+    const timer=setTimeout(()=>finish(new Error('API timeout.')),15000);
+    function cleanup(){clearTimeout(timer);delete window[cb];s.remove()}
+    function finish(err,data){cleanup();err?reject(err):resolve(data)}
+    window[cb]=data=>finish(null,data);
+    s.onerror=()=>finish(new Error('API tidak dapat dimuat.'));
+    s.src=u.toString();document.head.appendChild(s);
+  });
 }
 async function apiPost(params={}){
   const body=new URLSearchParams();
@@ -83,7 +91,7 @@ async function loadPrograms(){
     });
     if(sel)sel.innerHTML='<option value="">Pilih program...</option>'+list.map(p=>`<option value="${esc(p.programId)}">${esc(p.kategori)} • ${esc(p.nama)} • ${p.pricingType==='BERBAYAR'?rupiah(p.price):'Gratis'}</option>`).join('');
   }catch(e){
-    Object.values(targets).forEach(el=>{if(el)el.innerHTML='<div class="notice">Program belum dapat dimuat. Periksa API Apps Script.</div>'});
+    Object.values(targets).forEach(el=>{if(el)el.innerHTML='<div class="notice">Program belum dapat dimuat. Silakan refresh halaman beberapa saat lagi.</div>'});
     if(sel)sel.innerHTML='<option value="">Program belum tersedia</option>';
   }
 }

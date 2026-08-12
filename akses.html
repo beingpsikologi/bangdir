@@ -1,11 +1,11 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MyBeing | Pengembangan Diri</title><script src="assets/js/config.js?v=2.2.1"></script>
+<title>MyBeing | Pengembangan Diri</title><script src="assets/js/config.js?v=4.0.0"></script>
 <style>
 :root{--g:#174b3a;--bg:#f5f8f6;--card:#fff;--mut:#6b7771;--line:#dfe8e3}
 *{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:#1f2a25}.wrap{max-width:980px;margin:auto;padding:24px}
 .brand{font-weight:800;color:var(--g);margin:10px 0 28px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:16px;box-shadow:0 8px 24px rgba(23,75,58,.06)}
 input,select{width:100%;padding:12px;border:1px solid #cad8d1;border-radius:12px;font:inherit}button,a.btn{display:inline-block;border:0;border-radius:12px;padding:12px 16px;background:var(--g);color:white;font-weight:800;text-decoration:none;cursor:pointer}
-.material,.session{padding:15px 0;border-top:1px solid var(--line)}.material:first-child,.session:first-child{border-top:0}.mut{color:var(--mut)}.hidden{display:none}
+.material,.session{padding:15px 0;border-top:1px solid var(--line)}.session-card{border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0;background:#fff}.session-materials{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}.material:first-child,.session:first-child{border-top:0}.mut{color:var(--mut)}.hidden{display:none}
 .meta{display:flex;gap:8px;flex-wrap:wrap}.badge{padding:5px 9px;background:#eef4f1;border-radius:999px;color:var(--g);font-size:12px;font-weight:800}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:700px){.grid2{grid-template-columns:1fr}}
 </style></head><body><div class="wrap">
@@ -24,7 +24,16 @@ function formatDateID(v){
  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/); return m?`${m[3]}-${m[2]}-${m[1]}`:s;
 }
 function normalizeAccessInput(value){const raw=String(value||'').trim();if(!raw)return'';try{const u=new URL(raw),t=u.searchParams.get('access');if(t)return t.trim()}catch(_){}const m=raw.match(/[?&]access=([^&#]+)/i);if(m&&m[1]){try{return decodeURIComponent(m[1]).trim()}catch(_){return m[1].trim()}}return raw}
-async function api(params){const u=new URL(API_URL);Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));u.searchParams.set('_',Date.now());return fetch(u,{cache:'no-store'}).then(r=>r.json())}
+function api(params={}){
+ return new Promise((resolve,reject)=>{
+  const cb='mybeing_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2),u=new URL(API_URL),s=document.createElement('script');
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v ?? ''));u.searchParams.set('callback',cb);u.searchParams.set('_',Date.now());
+  const timer=setTimeout(()=>finish(new Error('API timeout.')),15000);
+  function cleanup(){clearTimeout(timer);delete window[cb];s.remove()}
+  function finish(err,data){cleanup();err?reject(err):resolve(data)}
+  window[cb]=data=>finish(null,data);s.onerror=()=>finish(new Error('API gagal dimuat.'));s.src=u.toString();document.head.appendChild(s);
+ });
+}).then(r=>r.json())}
 async function openPortal(t,programId=''){
  t=normalizeAccessInput(t);$('err').textContent='Memuat pembaruan terbaru...';$('portal').classList.add('hidden');
  try{
@@ -34,10 +43,13 @@ async function openPortal(t,programId=''){
   const plist=x.data.programs||[],current=x.data.program;
   $('programSelect').innerHTML=plist.map(p=>`<option value="${esc(p.programId)}" ${p.programId===current.programId?'selected':''}>${esc(p.kategori)} • ${esc(p.nama)}</option>`).join('');
   $('programInfo').innerHTML=`<b>${esc(current.nama)}</b><br><span class="mut">${esc(current.kategori)} • ${current.pricingType==='BERBAYAR'?'Berbayar':'Gratis'}</span><br><span class="mut">Tanggal Kegiatan: ${esc(formatDateID(current.tanggalMulai||''))}${current.tanggalAkhir&&current.tanggalAkhir!==current.tanggalMulai?' s.d. '+esc(formatDateID(current.tanggalAkhir)):''}</span>`;
-  const ss=x.data.sesi||[];
-  $('sessions').innerHTML=ss.length?ss.map(s=>`<div class="session"><h3>${esc(s.judul)}</h3><div class="meta"><span class="badge">${esc(formatDateID(s.tanggalSesi))} ${esc(s.jamSesi||'')}</span>${s.zoomAktif&&s.zoomUrl?'<span class="badge">Zoom Aktif</span>':''}</div><p class="mut">${esc(s.deskripsi||'')}</p>${s.zoomAktif&&s.zoomUrl?`<a class="btn" target="_blank" rel="noopener" href="${esc(s.zoomUrl)}">Buka Zoom</a>`:'<span class="mut">Akses Zoom belum diaktifkan Studio.</span>'}</div>`).join(''):'<p class="mut">Belum ada sesi yang dipublikasikan.</p>';
-  const ms=x.data.materi||[];
-  $('materials').innerHTML=ms.length?ms.map(m=>`<div class="material"><h3>${esc(m.judul)}</h3>${m.sesiNama?`<span class="badge">${esc(m.sesiNama)}</span>`:''}<p class="mut">${esc(m.deskripsi||'')}</p><a class="btn" target="_blank" rel="noopener" href="${esc(m.link)}">Buka / Download</a></div>`).join(''):'<p class="mut">Belum ada materi yang dipublikasikan.</p>';
+  const ss=x.data.sesi||[],ms=x.data.materi||[];
+  const general=ms.filter(m=>!m.sesiId);
+  $('sessions').innerHTML=ss.length?ss.map(s=>{
+    const linked=ms.filter(m=>m.sesiId===s.sesiId);
+    return `<div class="session-card"><h3>${esc(s.judul)}</h3><div class="meta"><span class="badge">${esc(formatDateID(s.tanggalSesi))} ${esc(s.jamSesi||'')}</span>${s.zoomAktif&&s.zoomUrl?'<span class="badge">Zoom Aktif</span>':''}</div><p class="mut">${esc(s.deskripsi||'')}</p>${s.zoomAktif&&s.zoomUrl?`<a class="btn" target="_blank" rel="noopener" href="${esc(s.zoomUrl)}">Buka Zoom</a>`:'<span class="mut">Akses Zoom belum diaktifkan.</span>'}<div class="session-materials"><b>Materi sesi</b>${linked.length?linked.map(m=>`<div class="material"><h3>${esc(m.judul)}</h3><p class="mut">${esc(m.deskripsi||'')}</p><a class="btn" target="_blank" rel="noopener" href="${esc(m.link)}">Buka / Download</a></div>`).join(''):'<p class="mut">Belum ada materi untuk sesi ini.</p>'}</div></div>`;
+  }).join(''):'<p class="mut">Belum ada sesi yang dipublikasikan.</p>';
+  $('materials').innerHTML=general.length?general.map(m=>`<div class="material"><h3>${esc(m.judul)}</h3><p class="mut">${esc(m.deskripsi||'')}</p><a class="btn" target="_blank" rel="noopener" href="${esc(m.link)}">Buka / Download</a></div>`).join(''):'<p class="mut">Belum ada materi umum yang dipublikasikan.</p>';
   $('portal').classList.remove('hidden');$('lastRefresh').textContent='Diperbarui: '+new Date().toLocaleString('id-ID')
  }catch(e){$('err').textContent='API belum terhubung atau koneksi bermasalah.'}
 }

@@ -1,0 +1,1 @@
+Paket Bangdir/MyBeing v4.0. Lihat README-INSTALASI-v4.0.txt pada paket utama.
