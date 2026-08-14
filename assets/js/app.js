@@ -41,21 +41,31 @@ function normalizeDriveLink(url,forImage=false){
   const u=String(url||'').trim(); if(!u)return ''; const id=driveFileId(u);
   return id?(forImage?`https://drive.google.com/thumbnail?id=${id}&sz=w1200`:`https://drive.google.com/file/d/${id}/view`):u;
 }
-function inferMediaType(p){
-  const explicit=String(p.mediaType||'').toUpperCase(); if(explicit)return explicit;
-  const u=String(p.mediaUrl||'').toLowerCase();
-  if(/\.(jpg|jpeg|png|webp)(\?|$)/.test(u))return'IMAGE';
-  if(/\.pdf(\?|$)/.test(u))return'PDF'; return u?'LINK':'';
+function mediaUrlOf(p){
+  return String(p.mediaUrl||p.MediaURL||p.mediaURL||p.flyerUrl||p.flyerURL||p.flyer||'').trim();
 }
+function mediaTypeOf(p){
+  const raw=String(p.mediaType||p.MediaType||p.mediaTYPE||'').trim().toUpperCase();
+  if(['IMAGE','IMG','FOTO','PHOTO','JPG','JPEG','PNG','WEBP'].includes(raw))return 'IMAGE';
+  if(raw==='PDF')return 'PDF';
+  const u=mediaUrlOf(p).toLowerCase();
+  if(/\.pdf(\?|#|$)/.test(u))return 'PDF';
+  if(/\.(jpg|jpeg|png|webp|gif)(\?|#|$)/.test(u))return 'IMAGE';
+  // Link Google Drive yang dipakai Studio untuk flyer dianggap gambar secara default.
+  if(driveFileId(u))return 'IMAGE';
+  return u?'LINK':'';
+}
+function inferMediaType(p){return mediaTypeOf(p)}
 function programMedia(p){
-  if(!p.mediaUrl)return '';
-  const type=inferMediaType(p),openUrl=normalizeDriveLink(p.mediaUrl,false);
+  const mediaUrl=mediaUrlOf(p);
+  if(!mediaUrl)return '';
+  const type=mediaTypeOf(p),openUrl=normalizeDriveLink(mediaUrl,false);
   if(type==='IMAGE'){
-    const src=normalizeDriveLink(p.mediaUrl,true);
-    return `<div class="program-media-wrap"><a href="${esc(openUrl)}" target="_blank" rel="noopener" class="program-media"><img src="${esc(src)}" alt="Flyer ${esc(p.nama)}" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('media-fallback');this.parentElement.innerHTML='<span>Lihat Flyer Program</span>'"></a></div>`;
+    const src=normalizeDriveLink(mediaUrl,true);
+    return `<div class="program-media-wrap"><a href="${esc(openUrl)}" target="_blank" rel="noopener" class="program-media"><img src="${esc(src)}" alt="Flyer ${esc(p.nama||p.Nama||'Program')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='https://drive.google.com/uc?export=view&id=${esc(driveFileId(mediaUrl))}'"></a></div>`;
   }
-  if(type==='PDF')return `<div class="program-media-action"><a class="btn soft" target="_blank" rel="noopener" href="${esc(openUrl)}">Lihat Brosur PDF</a></div>`;
-  return `<div class="program-media-action"><a class="btn soft" target="_blank" rel="noopener" href="${esc(openUrl)}">Lihat Informasi Program</a></div>`;
+  if(type==='PDF')return `<div class="program-media-action"><a class="btn soft" target="_blank" rel="noopener" href="${esc(openUrl)}">Lihat Flyer / Brosur PDF</a></div>`;
+  return `<div class="program-media-action"><a class="btn soft" target="_blank" rel="noopener" href="${esc(openUrl)}">Lihat Flyer Program</a></div>`;
 }
 function selectProgram(id){const s=$('publicProgramSelect');if(s){s.value=id;$('daftar')?.scrollIntoView({behavior:'smooth'})}}
 function categoryKey(p){
