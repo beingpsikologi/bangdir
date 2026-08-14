@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pembayaran Program • BEING</title>
+<style>
+:root{--g:#15594c;--bg:#f3f7f5;--line:#dce8e2;--mut:#6d7b76;--danger:#a73535}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#18352d}
+.wrap{min-height:100vh;display:grid;place-items:center;padding:24px}.card{width:min(720px,100%);background:#fff;border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 20px 60px #153d3215}
+h1,h2{color:var(--g);margin-top:0}.mut{color:var(--mut)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.box{border:1px solid var(--line);border-radius:15px;padding:16px;background:#fbfdfc}.control{width:100%;padding:12px;border:1px solid #cbdad4;border-radius:11px;background:#fff}
+.btn{display:inline-block;border:0;border-radius:11px;padding:11px 15px;background:var(--g);color:#fff;text-decoration:none;font-weight:700;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}
+.notice{padding:12px;border-radius:11px;background:#edf5f1;margin-top:14px}.notice.error{background:#fff0f0;color:var(--danger)}
+.status{display:inline-block;padding:5px 9px;border-radius:999px;background:#edf5f1;font-size:12px;font-weight:700}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.card{padding:18px}}
+</style>
+</head>
+<body>
+<div class="wrap"><main class="card">
+<div class="mut">BEING • PENGEMBANGAN DIRI</div>
+<h1>Upload Bukti Pembayaran</h1>
+<div id="content"><div class="notice">Memuat data pendaftaran...</div></div>
+</main></div>
+<script src="assets/js/config.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const rupiah=n=>'Rp '+Number(n||0).toLocaleString('id-ID');
+
+function apiGet(params={}){
+ return new Promise((resolve,reject)=>{
+  const cb='pay_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2),u=new URL(API_URL);
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v??''));u.searchParams.set('callback',cb);u.searchParams.set('_',Date.now());
+  const s=document.createElement('script'),timer=setTimeout(()=>finish(new Error('API timeout.')),15000);
+  function cleanup(){clearTimeout(timer);delete window[cb];s.remove()}
+  function finish(err,data){cleanup();err?reject(err):resolve(data)}
+  window[cb]=data=>finish(null,data);s.onerror=()=>finish(new Error('API tidak dapat dimuat.'));s.src=u.toString();document.head.appendChild(s);
+ });
+}
+async function apiPost(params={}){
+ const body=new URLSearchParams();Object.entries(params).forEach(([k,v])=>body.append(k,v??''));
+ const r=await fetch(API_URL,{method:'POST',body,redirect:'follow'}),txt=await r.text();
+ try{return JSON.parse(txt)}catch{throw new Error('Respons API tidak dapat dibaca.')}
+}
+function fileToDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
+
+async function boot(){
+ const q=new URLSearchParams(location.search),token=q.get('access')||'',programId=q.get('program')||'';
+ if(!token||!programId){$('content').innerHTML='<div class="notice error">Link pembayaran tidak lengkap. Gunakan link yang dikirim melalui email BEING.</div>';return}
+ try{
+  const x=await apiGet({action:'paymentPortal',token,programId});
+  if(!x.ok){$('content').innerHTML='<div class="notice error">'+esc(x.message||'Data tidak ditemukan.')+'</div>';return}
+  render(x,token,programId);
+ }catch(e){$('content').innerHTML='<div class="notice error">'+esc(e.message||'Gagal memuat data pembayaran.')+'</div>'}
+}
+function render(x,token,programId){
+ const p=x.payment||{},status=String(x.paymentStatus||x.status||'').toUpperCase();
+ let action='';
+ if(status==='MENUNGGU_VERIFIKASI'){
+  action='<div class="notice"><b>Bukti pembayaran sudah dikirim.</b><br>Saat ini sedang menunggu verifikasi BEING. Tidak perlu mengirim ulang.</div>';
+ }else if(status==='LUNAS'||x.status==='AKTIF'){
+  action='<div class="notice"><b>Pembayaran sudah lunas.</b><br>Akses MyBeing akan/dan telah dikirim melalui email.</div>';
+ }else if(x.canUpload){
+  action=`<div class="box"><h2>Kirim bukti pembayaran</h2>
+  <input id="proofFile" class="control" type="file" accept="image/*,.pdf">
+  <p class="mut">JPG/PNG/PDF, maksimal 2 MB.</p>
+  <button id="proofBtn" class="btn" type="button">Kirim Bukti Pembayaran</button><div id="proofMsg"></div></div>`;
+ }else{
+  action='<div class="notice">Status pembayaran: <b>'+esc(status||'-')+'</b>.</div>';
+ }
+ $('content').innerHTML=`<div class="grid">
+ <div class="box"><h2>Data pendaftaran</h2><p><b>${esc(x.nama)}</b><br>${esc(x.email)}</p><p>Program:<br><b>${esc(x.programNama)}</b></p><span class="status">${esc(status||'-')}</span></div>
+ <div class="box"><h2>Instruksi pembayaran</h2><p>Nominal: <b>${rupiah(x.amountDue)}</b></p><p>Bank: <b>${esc(p.bankName||'-')}</b><br>No. Rekening: <b>${esc(p.accountNumber||'-')}</b><br>Atas nama: <b>${esc(p.accountHolder||'-')}</b></p>${p.qrisUrl?`<p><a class="btn" target="_blank" rel="noopener" href="${esc(p.qrisUrl)}">Buka QRIS</a></p>`:''}</div>
+ </div><div style="margin-top:16px">${action}</div>`;
+ const btn=$('proofBtn');if(btn)btn.onclick=()=>submitProof(token,programId);
+}
+async function submitProof(token,programId){
+ const f=$('proofFile').files[0],msg=$('proofMsg'),btn=$('proofBtn');
+ if(!f){msg.innerHTML='<div class="notice error">Pilih file bukti pembayaran.</div>';return}
+ if(f.size>2*1024*1024){msg.innerHTML='<div class="notice error">Ukuran file maksimal 2 MB.</div>';return}
+ btn.disabled=true;msg.innerHTML='<div class="notice">Mengirim bukti pembayaran...</div>';
+ try{
+  const data=await fileToDataUrl(f),r=await apiPost({action:'submitPaymentToken',token,programId,fileName:f.name,mimeType:f.type,fileData:data});
+  if(!r.ok){msg.innerHTML='<div class="notice error">'+esc(r.message||'Bukti belum berhasil dikirim.')+'</div>';return}
+  msg.innerHTML='<div class="notice"><b>Bukti pembayaran berhasil dikirim.</b><br>Menunggu verifikasi BEING.</div>';setTimeout(()=>location.reload(),1200);
+ }catch(e){msg.innerHTML='<div class="notice error">'+esc(e.message||'Gagal mengirim bukti pembayaran.')+'</div>'}
+ finally{btn.disabled=false}
+}
+boot();
+</script>
+</body>
+</html>
