@@ -41,31 +41,21 @@ function normalizeDriveLink(url,forImage=false){
   const u=String(url||'').trim(); if(!u)return ''; const id=driveFileId(u);
   return id?(forImage?`https://drive.google.com/thumbnail?id=${id}&sz=w1200`:`https://drive.google.com/file/d/${id}/view`):u;
 }
-function mediaUrlOf(p){
-  return String(p.mediaUrl||p.MediaURL||p.mediaURL||p.flyerUrl||p.flyerURL||p.flyer||'').trim();
+function inferMediaType(p){
+  const explicit=String(p.mediaType||'').toUpperCase(); if(explicit)return explicit;
+  const u=String(p.mediaUrl||'').toLowerCase();
+  if(/\.(jpg|jpeg|png|webp)(\?|$)/.test(u))return'IMAGE';
+  if(/\.pdf(\?|$)/.test(u))return'PDF'; return u?'LINK':'';
 }
-function mediaTypeOf(p){
-  const raw=String(p.mediaType||p.MediaType||p.mediaTYPE||'').trim().toUpperCase();
-  if(['IMAGE','IMG','FOTO','PHOTO','JPG','JPEG','PNG','WEBP'].includes(raw))return 'IMAGE';
-  if(raw==='PDF')return 'PDF';
-  const u=mediaUrlOf(p).toLowerCase();
-  if(/\.pdf(\?|#|$)/.test(u))return 'PDF';
-  if(/\.(jpg|jpeg|png|webp|gif)(\?|#|$)/.test(u))return 'IMAGE';
-  // Link Google Drive yang dipakai Studio untuk flyer dianggap gambar secara default.
-  if(driveFileId(u))return 'IMAGE';
-  return u?'LINK':'';
-}
-function inferMediaType(p){return mediaTypeOf(p)}
 function programMedia(p){
-  const mediaUrl=mediaUrlOf(p);
-  if(!mediaUrl)return '';
-  const type=mediaTypeOf(p),openUrl=normalizeDriveLink(mediaUrl,false);
+  if(!p.mediaUrl)return '';
+  const type=inferMediaType(p),openUrl=normalizeDriveLink(p.mediaUrl,false);
   if(type==='IMAGE'){
-    const src=normalizeDriveLink(mediaUrl,true);
-    return `<div class="program-media-wrap"><a href="${esc(openUrl)}" target="_blank" rel="noopener" class="program-media"><img src="${esc(src)}" alt="Flyer ${esc(p.nama||p.Nama||'Program')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='https://drive.google.com/uc?export=view&id=${esc(driveFileId(mediaUrl))}'"></a></div>`;
+    const src=normalizeDriveLink(p.mediaUrl,true);
+    return `<div class="program-media-wrap"><a href="${esc(openUrl)}" target="_blank" rel="noopener" class="program-media"><img src="${esc(src)}" alt="Flyer ${esc(p.nama)}" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('media-fallback');this.parentElement.innerHTML='<span>Lihat Flyer Program</span>'"></a></div>`;
   }
-  if(type==='PDF')return `<div class="program-media-action"><a class="btn soft" target="_blank" rel="noopener" href="${esc(openUrl)}">Lihat Flyer / Brosur PDF</a></div>`;
-  return `<div class="program-media-action"><a class="btn soft" target="_blank" rel="noopener" href="${esc(openUrl)}">Lihat Flyer Program</a></div>`;
+  if(type==='PDF')return `<div class="program-media-action"><a class="btn soft" target="_blank" rel="noopener" href="${esc(openUrl)}">Lihat Brosur PDF</a></div>`;
+  return `<div class="program-media-action"><a class="btn soft" target="_blank" rel="noopener" href="${esc(openUrl)}">Lihat Informasi Program</a></div>`;
 }
 function selectProgram(id){const s=$('publicProgramSelect');if(s){s.value=id;$('daftar')?.scrollIntoView({behavior:'smooth'})}}
 function categoryKey(p){
@@ -125,33 +115,12 @@ async function showPaidFlow(x,wa){
   n.innerHTML=`<div class="payment-panel">
     <h3>Pendaftaran diterima • Menunggu Pembayaran</h3>
     <p><b>${esc(x.programNama||'Program')}</b></p>
-    <div class="pay-grid">
-      <div>
-        <p><b>Nominal:</b> ${rupiah(x.amountDue)}</p>
-        <p><b>Bank:</b> ${esc(p.bankName||'-')}<br><b>No. Rekening:</b> ${esc(p.accountNumber||'-')}<br><b>Atas nama:</b> ${esc(p.accountHolder||'-')}</p>
-        ${p.qrisUrl?`<p><a class="btn secondary" target="_blank" href="${esc(p.qrisUrl)}">Buka QRIS</a></p>`:''}
-      </div>
-      <div>
-        <label><b>Upload bukti pembayaran</b></label>
-        <input id="proofFile" type="file" accept="image/*,.pdf">
-        <small>Maksimal 2 MB. JPG/PNG/PDF.</small>
-        <button id="proofBtn" class="btn primary" type="button" style="margin-top:10px">Kirim Bukti Pembayaran</button>
-        <div id="proofMsg" class="notice" style="margin-top:10px"></div>
-      </div>
-    </div>
+    <p><b>Nominal:</b> ${rupiah(x.amountDue)}</p>
+    <p>Instruksi pembayaran dan <b>link Upload Bukti Pembayaran</b> telah dikirim ke email yang digunakan saat pendaftaran.</p>
+    <p class="mut">Silakan lakukan pembayaran terlebih dahulu, kemudian buka kembali email dari BEING dan klik tombol <b>Upload Bukti Pembayaran</b>.</p>
+    ${p.qrisUrl?`<p><a class="btn secondary" target="_blank" rel="noopener" href="${esc(p.qrisUrl)}">Buka QRIS</a></p>`:''}
+    <div class="notice" style="margin-top:12px"><b>Tidak menerima email?</b><br>Periksa folder Spam/Promosi dan pastikan alamat email saat mendaftar sudah benar.</div>
   </div>`;
-  $('proofBtn').onclick=async()=>{
-    const f=$('proofFile').files[0],msg=$('proofMsg');
-    if(!f){msg.textContent='Pilih file bukti pembayaran terlebih dahulu.';return}
-    if(f.size>2*1024*1024){msg.textContent='Ukuran file maksimal 2 MB.';return}
-    $('proofBtn').disabled=true; msg.textContent='Mengirim bukti...';
-    try{
-      const data=await fileToDataUrl(f);
-      const r=await apiPost({action:'submitPayment',pesertaId:x.pesertaId,fileName:f.name,mimeType:f.type,fileData:data});
-      msg.innerHTML=r.ok?'<b>Bukti berhasil dikirim.</b><br>Studio akan memverifikasi pembayaran. Setelah disetujui, link MyBeing dikirim otomatis melalui email.':'<b>Belum berhasil.</b><br>'+esc(r.message||'');
-    }catch(e){msg.textContent='Gagal mengirim bukti pembayaran.'}
-    finally{$('proofBtn').disabled=false}
-  };
 }
 
 const regForm=$('registerForm');
