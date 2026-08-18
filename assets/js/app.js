@@ -42,10 +42,19 @@ function normalizeDriveLink(url,forImage=false){
   return id?(forImage?`https://drive.google.com/thumbnail?id=${id}&sz=w1200`:`https://drive.google.com/file/d/${id}/view`):u;
 }
 function inferMediaType(p){
-  const explicit=String(p.mediaType||'').toUpperCase(); if(explicit)return explicit;
-  const u=String(p.mediaUrl||'').toLowerCase();
-  if(/\.(jpg|jpeg|png|webp)(\?|$)/.test(u))return'IMAGE';
-  if(/\.pdf(\?|$)/.test(u))return'PDF'; return u?'LINK':'';
+  const explicit=String(p.mediaType||'').toUpperCase();
+  const u=String(p.mediaUrl||'').trim();
+  const low=u.toLowerCase();
+
+  // Flyer dari Google Drive tetap dianggap IMAGE
+  // walaupun API mengirim mediaType = LINK.
+  if(driveFileId(u)) return 'IMAGE';
+
+  if(explicit==='IMAGE') return 'IMAGE';
+  if(explicit==='PDF') return 'PDF';
+  if(/\.(jpg|jpeg|png|webp)(\?|$)/.test(low)) return 'IMAGE';
+  if(/\.pdf(\?|$)/.test(low)) return 'PDF';
+  return low ? 'LINK' : '';
 }
 function programMedia(p){
   if(!p.mediaUrl)return '';
